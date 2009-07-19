@@ -1,0 +1,14 @@
+// THESE CAN BE CHANGED BY YOU:
+{.$DEFINE OCX_ONLY}    // not done - will be in DXSock 4.0
+{.$DEFINE OBJECTS_ONLY}
+{$DEFINE ASM8086}
+
+////////////////////////////////////////////////////////////////////////////////
+{$IFDEF VER90}
+   {$DEFINE VER100}
+{$ENDIF}
+{$IFDEF VER105}
+   {$DEFINE VER100}
+{$ENDIF}
+
+// END OF FILE //
