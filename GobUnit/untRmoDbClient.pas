@@ -108,6 +108,7 @@ begin
     DisConn;
     FHost := ISvrIP;
     FPort := ISvrPort;
+    FIsDisConn := False;
     if not IsConnected then begin
       try
         Result := Connto(FHost, FPort);
