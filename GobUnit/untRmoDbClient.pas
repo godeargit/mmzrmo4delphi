@@ -26,7 +26,7 @@ type
   TRmoClient = class(TSocketClient)
   private
     FSqlPart1, FSqlPart2: string;
-    FtableName: string;
+
     Fsn: Cardinal;
     FQryForID: TADOQuery;
     FIsDisConn: boolean; //是否是自己手动断开连接的
@@ -37,7 +37,6 @@ type
      //检查是否连接存活
     procedure checkLive;
 
-    procedure OnAfterPost(DataSet: TDataSet);
     procedure OnBeginPost(DataSet: TDataSet);
     procedure OnBeforeDelete(DataSet: TDataSet);
   public
@@ -180,45 +179,6 @@ end;
 var
   lglst: Tstrings;
 
-procedure TRmoClient.OnAfterPost(DataSet: TDataSet);
-var
-  llen: integer;
-  LS: string;
-begin
-  if TADOQuery(DataSet).Tag = 999 then
-    Exit;
-
-  //需要使用特殊手段去提交
-  LS := GetCurrPath + GetDocTime;
-  //如果第一个字段为只读，说明是自增长ID字段 改掉它
-  if DataSet.Fields[0].ReadOnly = true then begin
-    IsInserIDfield := True;
-    DataSet.Fields[0].ReadOnly := False;
-  end;
-  if IsInserIDfield then begin
-    //如果需要ID字段 自动获取
-    if FQryForID = nil then
-      FQryForID := TADOQuery.Create(nil);
-    OpenAndataSet(Format('select max(%s) as myid from %s', [DataSet.Fields[0].FieldName, FtableName]), FQryForID);
-    DataSet.Edit;
-    DataSet.Fields[0].AsInteger := FQryForID.FieldByName('myid').AsInteger + 1;
-  end;
-
-  TADOQuery(DataSet).Tag := 999;
-  TADOQuery(DataSet).SaveToFile(LS, pfXML);
-  TADOQuery(DataSet).Tag := 0;
-  WriteInteger(6);
-  WriteInteger(TADOQuery(DataSet).Fields[0].AsInteger);
-  SendZipFile(LS);
-  DeleteFile(LS);
-  llen := ReadInteger();
-  if llen = -1 then begin
-    llen := ReadInteger();
-    LS := ReadStr(llen);
-    raise Exception.Create(LS);
-  end
-end;
-
 procedure TRmoClient.OnBeforeDelete(DataSet: TDataSet);
 var
   I: Integer;
@@ -264,12 +224,38 @@ procedure TRmoClient.OnBeginPost(DataSet: TDataSet);
 var
   I, n: Integer;
   lsql, lBobName: string;
-  Result: string;
+  Result, FtableName: string;
   Lkey, lvalue: string;
   Lindex: integer;
   LblobStream: TStream;
 begin
   //获取表名
+  lsql := LowerCase(DataSet.Filter);
+  if Pos('select', lsql) > 0 then begin
+    if lglst = nil then
+      lglst := TStringList.Create;
+    GetEveryWord(lsql, lglst, ' ');
+    for i := 0 to lglst.Count - 1 do
+      if lglst.Strings[i] = 'from' then begin
+        Lindex := i;
+        Break;
+      end;
+    if Lindex < 2 then
+      ExceptTip('SQL语句错误！');
+    FtableName := '';
+    for i := Lindex + 1 to lglst.Count - 1 do
+      if lglst.Strings[i] <> '' then begin
+        FtableName := lglst.Strings[i];
+        Break;
+      end;
+    if FtableName = '' then
+      ExceptTip('SQL语句错误！');
+  end
+  else
+    ExceptTip('无法自动提交，请先执行select');
+
+
+
   //获取方法
   case TADOQuery(DataSet).State of //
     dsinsert: begin
@@ -280,16 +266,10 @@ begin
             Fields[0].ReadOnly := False;
           end;
           if IsInserIDfield then begin
-            n := 0;
-             //如果需要ID字段 自动获取
-            if FQryForID = nil then
-              FQryForID := TADOQuery.Create(nil);
-            OpenAndataSet(Format('select max(%s) as myid from %s', [Fields[0].FieldName, FtableName]), FQryForID);
-            Fields[0].AsInteger := FQryForID.FieldByName('myid').AsInteger + 1;
+            n := 1;
           end
           else
             n := 1;
-
           FSqlPart1 := 'insert into ' + FtableName + '(';
           FSqlPart2 := '';
           for i := n to count - 1 do begin
@@ -309,19 +289,6 @@ begin
             else
               FSqlPart2 := FSqlPart2 + ifthen(i = n, '', ',') + '''' + Fields[i].AsString + '''';
             end;
-
-//            if i <> Count - 1 then begin
-//
-//            end
-//            else begin
-//              FSqlPart1 := FSqlPart1 + Fields[i].FieldName + ') values (';
-//              case Fields[i].DataType of
-//                ftCurrency, ftBCD, ftWord, ftFloat, ftBytes: Result := FSqlPart2 + Fields[i].AsString + ',';
-//                ftSmallint, ftInteger: FSqlPart2 := FSqlPart2 + IntToStr(Fields[i].AsInteger) + ',';
-//              else
-//                FSqlPart2 := FSqlPart2 + '''' + Fields[i].AsString + '''' + ')';
-//              end;
-//            end;
           end;
           Result := FSqlPart1 + ') values (' + FSqlPart2 + ')';
         end;
@@ -335,6 +302,15 @@ begin
               lvalue := Fields[i].AsString;
               Continue;
             end;
+             //如果有blob字段则跳过
+            if Fields[i].DataType in [ftBlob] then begin
+              LblobStream := TMemoryStream.Create;
+              TBlobField(Fields[i]).SaveToStream(LblobStream);
+              EnCompressStream(TMemoryStream(LblobStream));
+              lBobName := Fields[i].FieldName;
+              Continue;
+            end;
+
             Result := Result + Fields[i].FieldName + '=';
             case Fields[i].DataType of //
               ftCurrency, ftBCD, ftWord: Result := Result + Fields[i].AsString;
@@ -351,6 +327,13 @@ begin
       end;
   end; // case
   ExeSQl(Result);
+  if DataSet.State = dsInsert then begin
+  //如果需要ID字段 自动获取
+    if FQryForID = nil then
+      FQryForID := TADOQuery.Create(nil);
+    OpenAndataSet(Format('select max(%s) as myid from %s', [DataSet.Fields[0].FieldName, FtableName]), FQryForID);
+    DataSet.Fields[0].AsInteger := FQryForID.FieldByName('myid').AsInteger + 1;
+  end;
   //如果有blob字段则 追加写入
   if LblobStream <> nil then begin
     lsql := format('update %s set %s=:%s where %s=%d', [FtableName, lBobName, 'Pbob'
@@ -438,30 +421,6 @@ var
   i, Lindex: integer;
   lsql: string;
 begin
-  lsql := LowerCase(IAdoquery.Filter);
-  if Pos('select', lsql) > 0 then begin
-    if lglst = nil then
-      lglst := TStringList.Create;
-    GetEveryWord(lsql, lglst, ' ');
-    for i := 0 to lglst.Count - 1 do
-      if lglst.Strings[i] = 'from' then begin
-        Lindex := i;
-        Break;
-      end;
-    if Lindex < 2 then
-      ExceptTip('SQL语句错误！');
-    FtableName := '';
-    for i := Lindex + 1 to lglst.Count - 1 do
-      if lglst.Strings[i] <> '' then begin
-        FtableName := lglst.Strings[i];
-        Break;
-      end;
-    if FtableName = '' then
-      ExceptTip('SQL语句错误！');
-  end
-  else
-    ExceptTip('无法自动提交，请先执行select');
-
   //如果有任何一个字段是tblob字段
   for i := 0 to IAdoquery.Fields.Count - 1 do begin // Iterate
     if IAdoquery.Fields[i].DataType in [ftBlob, ftOraClob] then begin
