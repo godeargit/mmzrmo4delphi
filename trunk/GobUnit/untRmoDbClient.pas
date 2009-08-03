@@ -332,12 +332,12 @@ begin
     if FQryForID = nil then
       FQryForID := TADOQuery.Create(nil);
     OpenAndataSet(Format('select max(%s) as myid from %s', [DataSet.Fields[0].FieldName, FtableName]), FQryForID);
-    DataSet.Fields[0].AsInteger := FQryForID.FieldByName('myid').AsInteger + 1;
+    DataSet.Fields[0].AsInteger := FQryForID.FieldByName('myid').AsInteger;
   end;
   //如果有blob字段则 追加写入
   if LblobStream <> nil then begin
     lsql := format('update %s set %s=:%s where %s=%d', [FtableName, lBobName, 'Pbob'
-      , DataSet.Fields[0].FieldName, ifthen(DataSet.State = dsInsert, DataSet.Fields[0].AsInteger - 1, DataSet.Fields[0].AsInteger)]);
+      , DataSet.Fields[0].FieldName, DataSet.Fields[0].AsInteger]);
     WriteInteger(6);
     WriteInteger(length(lsql));
     Write(lsql);
