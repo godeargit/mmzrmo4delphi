@@ -31,6 +31,8 @@ type
     procedure OnCreate(ISocket: TBaseSocketServer); override;
     procedure OnDestroy; override;
     function GetCurrDBPath(InPath: string): string; //zbt 得到当前路径
+    function DatasetFromStream(Idataset: TADOQuery; Stream: TMemoryStream): boolean;
+    function DatasetToStream(iRecordset: TADOQuery; Stream: TMemoryStream): boolean;
   end;
 
 var
@@ -42,14 +44,50 @@ uses sysUtils, pmybasedebug, DXSock, db;
 
 { TRmoSvr }
 
+function TRmodbSvr.DatasetFromStream(Idataset: TADOQuery; Stream:
+  TMemoryStream): boolean;
+var
+  RS: Variant;
+begin
+  Result := false;
+  if Stream.Size < 1 then
+    Exit;
+  try
+    Stream.Position := 0;
+    RS := Idataset.Recordset;
+    Rs.Open(TStreamAdapter.Create(Stream) as IUnknown);
+    Result := true;
+  finally;
+  end;
+end;
+
+function TRmodbSvr.DatasetToStream(iRecordset: TADOQuery; Stream:
+  TMemoryStream): boolean;
+const
+  adPersistADTG = $00000000;
+var
+  RS: Variant;
+begin
+  Result := false;
+  if iRecordset = nil then
+    Exit;
+  try
+    RS := iRecordset.Recordset;
+    RS.Save(TStreamAdapter.Create(stream) as IUnknown, adPersistADTG);
+    Stream.Position := 0;
+    Result := true;
+  finally;
+  end;
+end;
+
 function TRmodbSvr.ConnToDb(IConnStr: string): boolean;
 begin
   Db := TDBMrg.Create(IConnStr);
   Result := True;
   if Shower <> nil then begin
     Shower.AddShow('连接数据库功<%s>', [IConnStr]);
-    Gqry := Db.GetAnQuery('GobQryer');
   end;
+  Gqry := Db.GetAnQuery('GobQryer');
 end;
 
 procedure TRmodbSvr.OnCreate(ISocket: TBaseSocketServer);
@@ -106,10 +144,48 @@ begin
               Shower.AddShow('客户端执行语句<%s>', [LSQl]);
             try
               ls := GetCurrPath + GetDocDate + GetDocTime;
-              Db.OpenDataset(Gqry, LSQl, []).SaveToFile(ls);
+              Db.OpenDataset(Gqry, LSQl).SaveToFile(ls);
               ClientThread.Socket.WriteInteger(1);
               Socket.SendZIpFile(ls, ClientThread);
               DeleteFile(ls);
+            except
+              on e: Exception do begin
+                ClientThread.Socket.WriteInteger(-1);
+                ClientThread.Socket.WriteInteger(Length(e.Message));
+                ClientThread.Socket.Write(e.Message);
+                if Shower <> nil then
+                  Shower.AddShow('客户端执行语句异常<%s>', [e.Message]);
+              end;
+            end;
+          finally
+            Flock.Leave;
+          end;
+        end;
+      22: begin //执行一个查询语句   流式传输
+          Flock.Enter;
+          try
+            Llen := ClientThread.Socket.ReadInteger;
+            LSQl := ClientThread.Socket.ReadStr(Llen);
+            if Shower <> nil then
+              Shower.AddShow('客户端执行语句<%s>', [LSQl]);
+            try
+              if gLmemStream = nil then
+                gLmemStream := TMemoryStream.Create;
+              Db.OpenDataset(Gqry, LSQl); //.SaveToFile(ls);
+              if Gqry.RecordCount > 500 then begin
+                ls := GetCurrPath + GetDocDate + GetDocTime;
+                Gqry.SaveToFile(ls);
+                ClientThread.Socket.WriteInteger(11);
+                Socket.SendZIpFile(ls, ClientThread);
+                DeleteFile(ls);
+              end
+              else begin
+                if gLmemStream.Size > 0 then
+                  gLmemStream.Size := 0;
+                DatasetToStream(Gqry, gLmemStream);
+                ClientThread.Socket.WriteInteger(1);
+                Socket.SendZIpStream(gLmemStream, ClientThread);
+              end;
             except
               on e: Exception do begin
                 ClientThread.Socket.WriteInteger(-1);
@@ -148,10 +224,6 @@ begin
             Llen := ClientThread.Socket.ReadInteger;
             LSQl := ClientThread.Socket.ReadStr(Llen);
             gLmemStream := ReadStream(gLmemStream, ClientThread);
-//            if gLmemStream.Size > 0 then begin
-//              DeCompressStream(gLmemStream);
-//              gLmemStream.SaveToFile('C:\mm.bmp');
-//            end;
             if Shower <> nil then
               Shower.AddShow('客户端执行Blob字段<%s>', [LSQl]);
             try
@@ -160,9 +232,6 @@ begin
               Gqry.SQL.Add(LSQl);
               Gqry.Parameters.ParamByName('Pbob').LoadFromStream(gLmemStream, ftBlob);
               Gqry.ExecSQL;
-
-
-
             except
               on e: Exception do begin
                 ClientThread.Socket.WriteInteger(-1);
@@ -201,14 +270,14 @@ var
   IGetPath: string;
   TStr: TStrings;
   i: Integer;
-//  iCount: Integer;
+  iCount: Integer;
 begin
   try
     Result := '';
     ISql := InPath;
     TStr := TStringList.Create;
     GetEveryWord(ISql, TStr, '\');
-//    iCount := TStr.Count;
+    iCount := TStr.Count;
     for i := 0 to Tstr.Count - 2 do begin
       IGetPath := IGetPath + TStr[i] + '\';
     end;

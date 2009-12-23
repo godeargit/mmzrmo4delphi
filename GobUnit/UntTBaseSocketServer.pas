@@ -1,7 +1,7 @@
 unit UntTBaseSocketServer;
 {封装了Dxsock服务端的基类}
 interface
-uses DXString, DXServerCore, DXSock;
+uses DXString, DXServerCore, DXSock, CLasses;
 type
   Pint = ^integer;
   TBaseSocketServer = class
@@ -18,6 +18,8 @@ type
     procedure GetObject(IObj: TObject; IConn: TDXClientThread); overload;
     function GetZipFile(IFileName: string; IConn: TDXClientThread): Integer;
     function SendZIpFile(IFileName: string; IConn: TDXClientThread): Integer;
+    function SendZIpStream(IStream: tStream; IConn: TDXClientThread): Integer;
+       function GetZipStream(IStream: TStream;IConn: TDXClientThread):integer;
     procedure StartServer;
     constructor Create(Iport: Integer);
     destructor Destroy; override;
@@ -25,14 +27,14 @@ type
 
 implementation
 
-uses SysUtils, untfunctions, CLasses, pmybasedebug, windows;
+uses SysUtils, untfunctions, pmybasedebug, windows;
 { TBaseSocketServer }
 
 constructor TBaseSocketServer.Create(Iport: Integer);
 begin
   Server := TDXServerCore.Create(nil);
   Server.ServerPort := Iport;
-  Server.Timeout := 4294967295; //设置超时为最大值
+  Server.Timeout := 4294967295;              //设置超时为最大值
   Server.OnNewConnect := DefaultConn;
 end;
 
@@ -43,10 +45,12 @@ end;
 
 destructor TBaseSocketServer.Destroy;
 begin
-  Server.Stop;
-  Server.Close;
-  Server.Free;
-  Server := nil;
+  if Assigned(Server) then
+  begin
+    Server.Stop;
+    Server.Close;
+    FreeAndNil(Server);
+  end;
   inherited;
 end;
 
@@ -58,9 +62,9 @@ end;
 function TBaseSocketServer.GetZipFile(IFileName: string; IConn:
   TDXClientThread): Integer;
 var
-  LZipMM: TMemoryStream;
-  LBuff: Pointer;
-  i, ltot, x: Integer;
+  LZipMM                 : TMemoryStream;
+  LBuff                  : Pointer;
+  i, ltot, x             : Integer;
 begin
   LZipMM := TMemoryStream.Create;
   try
@@ -73,20 +77,19 @@ begin
       i := IConn.Socket.Read(PChar(LBuff) + x, ltot);
       Dec(ltot, i);
       inc(x, i);
-    end; // while
+    end;                                     // while
     DeCompressStream(LZipMM);
     LZipMM.SaveToFile(IFileName);
     Result := LZipMM.Size;
-  finally // wrap up
+  finally                                    // wrap up
     LZipMM.Free;
-  end; // try/finally
+  end;                                       // try/finally
 end;
-
 
 procedure TBaseSocketServer.GetObject(IObj: TObject; IClass: TClass;
   IConn: TDXSock);
 var
-  Ltep: pint;
+  Ltep                   : pint;
 begin
   IObj := TClass.Create;
   Ltep := Pointer(Iobj);
@@ -102,7 +105,7 @@ end;
 procedure TBaseSocketServer.GetObject(IObj: TObject;
   IConn: TDXClientThread);
 var
-  Ltep: pint;
+  Ltep                   : pint;
 begin
   Ltep := Pointer(Iobj);
   inc(Ltep);
@@ -117,7 +120,7 @@ end;
 
 procedure TBaseSocketServer.SendObject(IObj: TObject; IConn: TDXSock);
 var
-  Ltep: Pint;
+  Ltep                   : Pint;
 begin
   Ltep := Pointer(IObj);
   inc(Ltep);
@@ -131,7 +134,7 @@ end;
 
 procedure TBaseSocketServer.GetObject(IObj: TObject; IConn: TDXSock);
 var
-  Ltep: pint;
+  Ltep                   : pint;
 begin
   Ltep := Pointer(Iobj);
   inc(Ltep);
@@ -141,7 +144,7 @@ end;
 function TBaseSocketServer.SendZIpFile(IFileName: string; IConn:
   TDXClientThread): Integer;
 var
-  LZipMM: TMemoryStream;
+  LZipMM                 : TMemoryStream;
 begin
   LZipMM := TMemoryStream.Create;
   try
@@ -153,6 +156,25 @@ begin
   finally
     LZipMM.Free;
   end;
+end;
+
+function TBaseSocketServer.SendZIpStream(IStream: tStream;
+  IConn: TDXClientThread): Integer;
+begin
+  EnCompressStream(TMemoryStream(IStream));
+  IConn.Socket.WriteInteger(IStream.Size);
+  IConn.Socket.Write(TMemoryStream(IStream).Memory, IStream.Size);
+  Result := IStream.Size;
+end;
+
+function TBaseSocketServer.GetZipStream(IStream: TStream;IConn: TDXClientThread): integer;
+var
+  LZipMM                 : TMemoryStream;
+begin
+  LZipMM := TMemoryStream(IStream);
+  LZipMM.Size := IConn.socket.ReadInteger;
+  IConn.socket.ReceiveBuf(LZipMM.Memory^, LZipMM.Size);
+  DeCompressStream(LZipMM);
 end;
 
 

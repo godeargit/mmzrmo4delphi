@@ -11,6 +11,9 @@ type
   TRmoHelper = class
 
   public
+//    FChannel: tROIndyTCPChannel; // 设置Host 和 Port
+//    FMessage: tROBinMessage;
+//    FServer: tRORemoteService;
     FPublic: tadoquery;
     FLastSql: string; //最后一次查询的语句
     FRmoClient: TRmoClient;
@@ -35,6 +38,7 @@ type
 
    // function OpenTable(ItabName: string; Iado: TADOQuery): TADOQuery; overload;
     //function OpenTable(ItabName: string; IQueryRight: integer = 1): TADOQuery; overload;
+      {连接数据库服务端 iTestTable是测试查询的表名，必须要有}
     function ConnetToSvr(ISvrIP: string; ISvrPort: Word): Boolean;
     //重新连接服务器
     function ReConnSvr(ISvrIP: string; ISvrPort: Integer = -1): boolean;
@@ -139,12 +143,6 @@ begin
 end;
 
 
-
-
-
-
-
-
 function TRmoHelper.ExecAnSql(Iado: TADoquery; Isql: string;
   const Args: array of const): Integer;
 begin
@@ -188,4 +186,3 @@ finalization
     Gob_Rmo.Free;
 
 end.
-

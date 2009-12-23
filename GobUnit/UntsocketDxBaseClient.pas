@@ -10,7 +10,7 @@ unit UntsocketDxBaseClient;
 
 interface
 
-uses DXSock, classes, DXServerCore;
+uses DXSock, classes;
 
 type
   //客户端对象
@@ -32,8 +32,9 @@ type
     procedure GetObject(IObj: TObject); overload;
     //由外部代入已经创建好的对象
     procedure SendZipFile(IFileName: string); //发送压缩文件
-    function GetZipFile(IFileName: string): Integer; //接收压缩文件
-
+    function GetZipFile(IFileName: string): Integer; //接收压缩文件   //MMWIN:MEMBERSCOPY
+    function GetZipStream(IStream: TStream; IConn: TDXsock): integer;
+    function SendZIpStream(IStream: tStream; IConn: TDXsock): Integer;
     //连接
     function Connto(IIP: string; Iport: Word): boolean;
 
@@ -70,7 +71,6 @@ end;
 constructor TSocketClient.Create;
 begin
   inherited Create(nil);
-
   OnCreate;
 end;
 
@@ -136,6 +136,16 @@ begin
   end; // try/finally
 end;
 
+function TSocketClient.GetZipStream(IStream: TStream; IConn: TDXsock): integer;
+var
+  LZipMM: TMemoryStream;
+begin
+  LZipMM := TMemoryStream(IStream);
+  LZipMM.Size := IConn.ReadInteger;
+  IConn.ReceiveBuf(LZipMM.Memory^, LZipMM.Size);
+  DeCompressStream(LZipMM);
+end;
+
 procedure TSocketClient.SendHead(ICmd: Integer);
 begin
   WriteInteger(ICmd);
@@ -163,6 +173,14 @@ begin
   finally
     LZipMM.Free;
   end;
+end;
+
+function TSocketClient.SendZIpStream(IStream: tStream; IConn: TDXsock): Integer;
+begin
+  EnCompressStream(TMemoryStream(IStream));
+  IConn.WriteInteger(IStream.Size);
+  IConn.Write(TMemoryStream(IStream).Memory, IStream.Size);
+  Result := IStream.Size;
 end;
 
 procedure TSocketClient.WriteBuff(var obj; Ilen: integer);
