@@ -102,10 +102,12 @@ type
     FAutoFreeConn: boolean;
     FTotCount: Integer;
     FThread_Check: TCheckThread;
+    function GetIsConnectioned: Boolean;
   public
     FautoFree: boolean;
     {一个公共的BUff 启动时未创建}
     TepBuff: TADOQuery;
+    property IsConnectioned: Boolean read GetIsConnectioned;
     property TotCount: Integer read FTotCount write FTotCount;
     constructor Create(IConStr: string; iTimeOut: integer = 15; ICreateBuffCount:
       Integer = 5); overload;
@@ -137,10 +139,12 @@ type
     function ExecAnSql(Iado: TADoquery; Isql: string; const Args: array of const): Integer; overload;
     {执行一个查询语句}
     function OpenDataset(ISql: string): TADOQuery; overload;
+    function OpenDataset(Iado: TADoquery; Isql: string): TADOQuery; overload;
     {用指定的ＡＤＯ执行}
     function OpenDataset(IadoName, ISql: string): TADOQuery; overload;
     function OpenDataset(Iado: TADOQuery; ISql: string; const Args: array of const):
       TADOQuery; overload;
+
     function OpenDataset(ISql: string; const Args: array of const): TADOQuery; overload;
     function OpenDataset(IQueryRight: integer; ISql: string; const Args: array of
       const): TADOQuery; overload;
@@ -321,7 +325,7 @@ function RandomStr(aLength: Longint): string;
 {*缩短路径显示}
 function FormatPath(APath: string; Width: Integer): string;
 {当前项目的路径}
-function GetCurrPath: string;
+function GetCurrPath(IsAutoGetDll: boolean = true): string;
 {获取当前动态库的路径}
 function GetCurrDllpath: string;
 {判断是否都是数字}
@@ -338,6 +342,10 @@ function GetDocDate: string;
 function GetFormatDateTime: string;
 {设置系统时间}
 function SetSystime(ATime: TDateTime): boolean;
+{//系统时间设置函数；只对当前有效 参数 年月日之间的分隔符号 默认 -}
+function SetSystimeFormat(SS: char = '-'): boolean;
+
+
 
 
 {是否是合法IP}
@@ -426,45 +434,14 @@ procedure GetBinData(ISourData: string; IParamNum: integer; IBuff:
 procedure GetBinData(ISourData: pointer; ISourLen: integer; IParamNum, Ilen:
   integer; IBuff: pointer; ISpit: Char = '|'); overload;
 
-{字符串处理}
-function ReplaceChar(Ichar: char; IOldStr: string): string;
 
-//创建frame
-function CreateFrame(FrameClass: TCustomFrameClass; AParent:
-  TWinControl): TFrame;
+
 
 implementation
 
-uses ComConst, strutils, pmybasedebug;
+uses ComConst, strutils;
 
 
-var
-  lGMyframID: Integer = 1;
-
-function CreateFrame(FrameClass: TCustomFrameClass; AParent:
-  TWinControl): TFrame;
-begin
-  try
-    Result := TFrame(FrameClass.Create(AParent));
-    Result.Name := 'Tmyframe' + inttostr(lGMyframID);
-    inc(lGMyframID);
-    Result.Parent := AParent;
-  except
-    FreeAndNil(Result);
-  end;
-end;
-
-
-function ReplaceChar(Ichar: char; IOldStr: string): string;
-var
-  i: Integer;
-begin
-  Result := '';
-  for i := 1 to Length(IOldStr) do begin // Iterate
-    if IOldStr[i] <> Ichar then
-      Result := Result + IOldStr[i];
-  end; // for
-end;
 
 {$IFDEF ZLib}
 {-------------------------------------------------------------------------------
@@ -665,11 +642,11 @@ end;
   说明:      获取当前项目的路径
 -------------------------------------------------------------------------------}
 
-function GetCurrPath: string;
+function GetCurrPath(IsAutoGetDll: boolean = true): string;
 var
   ModName: array[0..MAX_PATH] of Char;
 begin
-  if ModuleIsLib then begin
+  if ModuleIsLib and IsAutoGetDll then begin
     GetModuleFileName(HInstance, ModName, SizeOf(ModName));
     Result := ExtractFilePath(ModName);
   end
@@ -748,6 +725,21 @@ end;
 function GetFormatDateTime: string;
 begin
   Result := FormatDateTime('yyyy-mm-dd hh:nn:ss', Now);
+end;
+
+
+function SetSystimeFormat(SS: char = '-'): boolean;
+var s: boolean;
+begin
+  //change the application's date time format.
+  DateSeparator := SS;
+  shortdateformat := 'YYYY' + SS + 'MM' + SS + 'DD';
+  ShortTimeFormat := 'hh:mm:ss';
+  TimeAMString := '';
+  TimePMString := '';
+  s := application.UpdateFormatSettings;
+  // by luyear 20020709
+  result := s;
 end;
 
 function SetSystime(ATime: TDateTime): boolean;
@@ -896,28 +888,22 @@ function KillTask(ExeFileName: string): integer;
 const
   PROCESS_TERMINATE = $0001;
 var
-  ls, lss: string;
   ContinueLoop: BOOL;
   FSnapshotHandle: THandle;
   FProcessEntry32: TProcessEntry32;
 begin
   result := 0;
-  ExeFileName := Trim(UpperCase(ExeFileName));
   FSnapshotHandle := CreateToolhelp32Snapshot
     (TH32CS_SNAPPROCESS, 0);
   FProcessEntry32.dwSize := Sizeof(FProcessEntry32);
   ContinueLoop := Process32First(FSnapshotHandle,
     FProcessEntry32);
   while integer(ContinueLoop) <> 0 do begin
-    ls := UpperCase(ExtractFileName(FProcessEntry32.szExeFile));
-    lss := UpperCase(FProcessEntry32.szExeFile);
-    if (ls = ExeFileName)
-      or (lss = ExeFileName) then begin
+    if ((UpperCase(ExtractFileName(FProcessEntry32.szExeFile)) = UpperCase(ExeFileName))
+      or (UpperCase(FProcessEntry32.szExeFile) = UpperCase(ExeFileName))) then
       Result := Integer(TerminateProcess(OpenProcess(
         PROCESS_TERMINATE, BOOL(0),
         FProcessEntry32.th32ProcessID), 0));
-      Break;
-    end;
     ContinueLoop := Process32Next(FSnapshotHandle,
       FProcessEntry32);
   end;
@@ -1088,7 +1074,7 @@ begin
     _SavWL1 := GetWindowLong(IForm.Handle, GWL_STYLE);
     SetParent(IForm.Handle, 0);
    // SetWindowLong(IForm.Handle, GWL_STYLE, Integer(WS_POPUP or WS_VISIBLE));
-    SetWindowPos(IForm.Handle, HWND_TOPMost, -6, -6, Screen.Width + 12, Screen.Height + 12, SWP_DRAWFRAME or SWP_FRAMECHANGED);
+    SetWindowPos(IForm.Handle, HWND_TOPMOST, -6, -6, Screen.Width + 12, Screen.Height + 12, SWP_DRAWFRAME or SWP_FRAMECHANGED);
     Result := True;
   end {否则就代表恢复}
   else begin
@@ -1195,10 +1181,16 @@ begin
           DoRemoveDir(sDirName + '\' + tfile)
         else
           DoRemoveDir(sDirName + tfile);
-        RemoveDirectory(PChar(tfile));
+        if not RemoveDirectory(PChar(tfile)) then
+          result := false
+        else
+          result := true;
       end
       else begin
-        DeleteFile(PChar(tfile))
+        if not DeleteFile(PChar(tfile)) then
+          result := false
+        else
+          result := true;
       end;
     until FindNextFile(hFindFile, FindFileData) = false;
     FindClose(hFindFile);
@@ -1224,7 +1216,7 @@ end;
 
 function DeleteDir(sDirName: string): Boolean;
 begin
-  Result := false;
+  Result := False;
   if Length(sDirName) <= 0 then
     exit;
   Result := DoRemoveDir(sDirName) and RemoveDir(sDirName);
@@ -1347,13 +1339,68 @@ begin
 end;
 
 function Str_Encry(ISrc: string; key: string = 'mMz'): string;
+var
+  KeyLen: Integer;
+  KeyPos: Integer;
+  offset: Integer;
+  dest: string;
+  SrcPos: Integer;
+  SrcAsc: Integer;
+  Range: Integer;
 begin
-  Result := ISrc;
+  KeyLen := Length(Key);
+  KeyPos := 0;
+  Range := 256;
+  Randomize;
+  offset := Random(Range);
+  dest := format('%1.2x', [offset]);
+  for SrcPos := 1 to Length(ISrc) do begin
+    SrcAsc := (Ord(ISrc[SrcPos]) + offset) mod 255;
+    if KeyPos < KeyLen then
+      KeyPos := KeyPos + 1
+    else
+      KeyPos := 1;
+    SrcAsc := SrcAsc xor Ord(Key[KeyPos]);
+    dest := dest + format('%1.2x', [SrcAsc]);
+    offset := SrcAsc;
+  end;
+  Result := Dest;
 end;
 
 function Str_Decry(ISrc: string; key: string = 'mMz'): string;
+var
+  KeyLen: Integer;
+  KeyPos: Integer;
+  offset: Integer;
+  dest: string;
+  SrcPos: Integer;
+  SrcAsc: Integer;
+  TmpSrcAsc: Integer;
 begin
-  Result := ISrc;
+  KeyLen := Length(Key);
+  KeyPos := 0;
+  offset := StrToInt('$' + copy(ISrc, 1, 2));
+  SrcPos := 3;
+  SrcAsc := 0;
+  repeat
+    try
+      SrcAsc := StrToInt('$' + copy(ISrc, SrcPos, 2));
+    except
+    end;
+    if KeyPos < KeyLen then
+      KeyPos := KeyPos + 1
+    else
+      KeyPos := 1;
+    TmpSrcAsc := SrcAsc xor Ord(Key[KeyPos]);
+    if TmpSrcAsc <= offset then
+      TmpSrcAsc := 255 + TmpSrcAsc - offset
+    else
+      TmpSrcAsc := TmpSrcAsc - offset;
+    dest := dest + chr(TmpSrcAsc);
+    offset := srcAsc;
+    SrcPos := SrcPos + 2;
+  until SrcPos >= Length(ISrc);
+  Result := Dest;
 end;
 {-------------------------------------------------------------------------------
   过程名:    FormatPath
@@ -1788,7 +1835,10 @@ procedure GetEveryWord(S: string; E: TStrings; C: string);
 var
   t, a: string;
 begin
-  E.Clear;
+  if E = nil then
+    E := TStringList.Create
+  else
+    E.Clear;
   t := s;
   while Pos(c, t) > 0 do begin
     a := copy(t, 1, pos(c, t) - 1);
@@ -2063,7 +2113,8 @@ begin
     end
     else try
       DeleteFile(PChar(aDir + aFsr.Name));
-    except end;
+    except
+    end;
     i := FindNext(aFsr);
   end;
   sysutils.FindClose(aFsr);
@@ -2142,7 +2193,12 @@ begin
   FConn.LoginPrompt := False;
   FPool := TStringList.Create;
   FConn.ConnectionString := IConStr;
-  FConn.Connected := True;
+  try
+    FConn.Connected := True;
+  except
+  end;
+
+  
   for I := 0 to ICreateBuffCount do
     GetAnQuery();
   FThread_Check := TCheckThread.Create(False, Self);
@@ -2265,7 +2321,8 @@ begin
   with GetAnQuery do begin
     try
       Close;
-      SQL.Text := Isql;
+      SQL.Clear;
+      SQL.Add(Isql);
       Result := ExecSQL;
     finally // wrap up
       Close;
@@ -2496,7 +2553,8 @@ begin
   Result := GetAnQuery;
   with Result do begin
     Close;
-    SQL.Text := ISql;
+    SQL.Clear;
+    SQL.Add(ISql);
     Open;
   end; // with
 end;
@@ -2516,7 +2574,8 @@ begin
   Result := GetAnQuery(IadoName);
   with Result do begin
     Close;
-    SQL.Text := ISql;
+    SQL.Clear;
+    SQL.Add(ISql);
     Open;
   end; // with
 end;
@@ -2693,7 +2752,8 @@ begin
   Result := GetAnQuery(IQueryRight);
   with Result do begin
     Close;
-    SQL.Text := ISql;
+    SQL.Clear;
+    SQL.Add(ISql);
     Open;
   end; // with
 end;
@@ -2705,7 +2765,8 @@ begin
   with GetAnQuery do begin
     try
       Close;
-      SQL.Text := Isql;
+      SQL.Clear;
+      SQL.Add(Isql);
       Result := ExecSQL;
     finally // wrap up
       Close;
@@ -2728,6 +2789,11 @@ var
   I: Integer;
 begin
   while not Terminated do begin
+    if ModuleIsLib then begin
+      sleep(100);
+      Continue;
+    end;
+
     if GetTickCount - CheckTime < 1000 then
       Sleep(100)
     else begin
@@ -2763,10 +2829,24 @@ begin
   Result := GetAnQuery;
   with Result do begin
     Close;
+    SQL.Clear;
+    SQL.Add(ISql);
+    Open;
+  end; // with
+end;
+
+
+function OpenDataset(Iado: TADOQuery; ISql: string):
+  TADOQuery; overload;
+begin
+  Result := Iado;
+  with Result do begin
+    Close;
     SQL.Text := ISql;
     Open;
   end; // with
 end;
+
 
 function TDBMrg.OpenDataset(Iado: TADOQuery; ISql: string; const Args: array of
   const): TADOQuery;
@@ -2775,7 +2855,8 @@ begin
   Result := Iado;
   with Result do begin
     Close;
-    SQL.Text := ISql;
+    SQL.Clear;
+    SQL.Add(ISql);
     Open;
   end; // with
 end;
@@ -2787,7 +2868,8 @@ begin
   with GetAnQuery(IQueryRight) do begin
     try
       Close;
-      SQL.Text := Isql;
+      SQL.Clear;
+      SQL.Add(Isql);
       Result := ExecSQL;
     finally // wrap up
       Close;
@@ -2801,7 +2883,8 @@ begin
   with Iado do begin
     try
       Close;
-      SQL.Text := Isql;
+      SQL.Clear;
+      SQL.Add(Isql);
       Result := ExecSQL;
     finally // wrap up
       Close;
@@ -2925,6 +3008,29 @@ begin
   CreateAccess.Create('Provider=Microsoft.Jet.OLEDB.4.0;Data Source=' + IFilename);
 end;
 
+function TDBMrg.GetIsConnectioned: Boolean;
+begin
+  if Assigned(FConn) then
+  begin
+    Result := FConn.Connected;
+  end
+  else
+  begin
+    Result := False;
+  end;
+end;
+
+
+function TDBMrg.OpenDataset(Iado: TADOQuery; ISql: string): TADOQuery;
+begin
+  Result := Iado;
+  with Result do begin
+    Close;
+    SQL.Clear;
+    SQL.Add(ISql);
+    Open;
+  end; // with
+end;
 
 initialization
 
