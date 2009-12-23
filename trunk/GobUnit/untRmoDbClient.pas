@@ -26,7 +26,7 @@ type
   TRmoClient = class(TSocketClient)
   private
     FSqlPart1, FSqlPart2: string;
-
+    gLmemStream: TMemoryStream;
     Fsn: Cardinal;
     FQryForID: TADOQuery;
     FIsDisConn: boolean; //是否是自己手动断开连接的
@@ -46,6 +46,8 @@ type
 
     //连接服务端
     function ConnToSvr(ISvrIP: string; ISvrPort: Integer = 9988): boolean;
+    function DatasetFromStream(Idataset: TADOQuery; Stream: TMemoryStream): boolean;
+    function DatasetToStream(iRecordset: TADOQuery; Stream: TMemoryStream): boolean;
     //断开连接
     procedure DisConn;
     //重新连接新的IP
@@ -148,6 +150,44 @@ begin
     end;
   finally
     Client.Ftimer.Tag := 0;
+  end;
+end;
+
+{ TRmoSvr }
+
+function TRmoClient.DatasetFromStream(Idataset: TADOQuery; Stream:
+  TMemoryStream): boolean;
+var
+  RS: Variant;
+begin
+  Result := false;
+  if Stream.Size < 1 then
+    Exit;
+  try
+    Stream.Position := 0;
+    RS := Idataset.Recordset;
+    Rs.Open(TStreamAdapter.Create(Stream) as IUnknown);
+    Result := true;
+  finally;
+  end;
+end;
+
+function TRmoClient.DatasetToStream(iRecordset: TADOQuery; Stream:
+  TMemoryStream): boolean;
+const
+  adPersistADTG = $00000000;
+var
+  RS: Variant;
+begin
+  Result := false;
+  if iRecordset = nil then
+    Exit;
+  try
+    RS := iRecordset.Recordset;
+    RS.Save(TStreamAdapter.Create(stream) as IUnknown, adPersistADTG);
+    Stream.Position := 0;
+    Result := true;
+  finally;
   end;
 end;
 
@@ -286,6 +326,7 @@ begin
             case Fields[i].DataType of
               ftCurrency, ftBCD, ftWord, ftFloat, ftBytes: Result := FSqlPart2 + ifthen(i = n, '', ',') + Fields[i].AsString;
               ftSmallint, ftInteger: FSqlPart2 := FSqlPart2 + ifthen(i = n, '', ',') + IntToStr(Fields[i].AsInteger);
+              ftDate, ftTime, ftDateTime: FSqlPart2 := FSqlPart2 + ifthen(i = n, '', ',') + FormatDateTime('yyyy-mm-dd hh:nn:ss', Fields[i].AsDateTime);
             else
               FSqlPart2 := FSqlPart2 + ifthen(i = n, '', ',') + '''' + Fields[i].AsString + '''';
             end;
@@ -315,7 +356,8 @@ begin
             case Fields[i].DataType of //
               ftCurrency, ftBCD, ftWord: Result := Result + Fields[i].AsString;
               ftFloat: Result := Result + Fields[i].AsString;
-              ftBytes, ftSmallint, ftInteger: Result := Result + IntToStr(Fields[i].AsInteger);
+              ftSmallint, ftInteger: Result := Result + IntToStr(Fields[i].AsInteger);
+//              ftDate, ftTime, ftDateTime:=Result := Result + format IntToStr(Fields[i]AsInteger);
             else
               Result := Result + '''' + Fields[i].AsString + '''';
             end; // case
@@ -394,7 +436,7 @@ begin
   inc(Fsn);
   Lend := 0;
   ls := ISql;
-  WriteInteger(2);
+  WriteInteger(22);
   WriteInteger(Length(ISql));
   Write(ISql);
   llen := ReadInteger();
@@ -404,9 +446,17 @@ begin
     raise Exception.Create(ISql);
   end
   else begin
-    ISql := GetCurrPath + GetDocDate + GetDocTime + IntToStr(Fsn);
-    GetZipFile(ISql);
-    IADoquery.LoadFromFile(ISql);
+    if llen = 11 then begin //流方式传数据
+      if gLmemStream = nil then
+        gLmemStream := TMemoryStream.Create;
+      GetZipStream(gLmemStream, self);
+      DatasetFromStream(IADoquery, gLmemStream);
+    end
+    else begin //如果数据量太大继续走文件方式
+      ISql := GetCurrPath + GetDocDate + GetDocTime + IntToStr(Fsn);
+      GetZipFile(ISql);
+      IADoquery.LoadFromFile(ISql);
+    end;
     if IsOPenAutoPost then begin
       IADoquery.Filter := (ls);
       ReadySqls(IADoquery);
