@@ -436,7 +436,7 @@ begin
   inc(Fsn);
   Lend := 0;
   ls := ISql;
-  WriteInteger(22);
+  WriteInteger(2);
   WriteInteger(Length(ISql));
   Write(ISql);
   llen := ReadInteger();
@@ -446,7 +446,7 @@ begin
     raise Exception.Create(ISql);
   end
   else begin
-    if llen = 1 then begin //流方式传数据
+    if llen = 11 then begin //流方式传数据
       if gLmemStream = nil then
         gLmemStream := TMemoryStream.Create;
       GetZipStream(gLmemStream, self);

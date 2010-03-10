@@ -118,16 +118,15 @@ var
 begin
   LZipMM := TMemoryStream.Create;
   try
-    LZipMM.Size := ReadInteger;
-    LBuff := GetMemory(LZipMM.Size);
-    ltot := LZipMM.Size;
+    ltot := ReadInteger;
+    LZipMM.Size := ltot;
+    LBuff := LZipMM.Memory;
     x := 0;
     while ltot > 0 do begin
       i := Read(PChar(LBuff) + x, ltot);
       Dec(ltot, i);
       inc(x, i);
     end; // while
-    CopyMemory(LZipMM.Memory, LBuff, LZipMM.Size);
     DeCompressStream(LZipMM);
     LZipMM.SaveToFile(IFileName);
     Result := LZipMM.Size;
