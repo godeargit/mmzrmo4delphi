@@ -39,7 +39,7 @@ object frm_main: Tfrm_main
     Top = 49
     Width = 677
     Height = 430
-    ActivePage = ts_two
+    ActivePage = ts_one
     Align = alClient
     TabOrder = 1
     object ts_one: TTabSheet
