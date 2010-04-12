@@ -23,10 +23,15 @@ uses
 
 type
   TConnthread = class;
+  TSelectitems = class
+  public
+    Sql: string;
+  end;
   TRmoClient = class(TSocketClient)
   private
+    FsqlLst: TStrings; //用来记录已经打开了的数据集 以及对于的语句
     FSqlPart1, FSqlPart2: string;
-    gLmemStream: TMemoryStream;
+
     Fsn: Cardinal;
     FQryForID: TADOQuery;
     FIsDisConn: boolean; //是否是自己手动断开连接的
@@ -46,8 +51,6 @@ type
 
     //连接服务端
     function ConnToSvr(ISvrIP: string; ISvrPort: Integer = 9988): boolean;
-    function DatasetFromStream(Idataset: TADOQuery; Stream: TMemoryStream): boolean;
-    function DatasetToStream(iRecordset: TADOQuery; Stream: TMemoryStream): boolean;
     //断开连接
     procedure DisConn;
     //重新连接新的IP
@@ -78,7 +81,7 @@ var
 
 implementation
 
-uses untfunctions, sysUtils, pmybasedebug, UntBaseProctol, DXSock;
+uses untfunctions, sysUtils, UntBaseProctol, DXSock, IniFiles;
 
 
 procedure TRmoClient.checkLive;
@@ -153,47 +156,9 @@ begin
   end;
 end;
 
-{ TRmoSvr }
-
-function TRmoClient.DatasetFromStream(Idataset: TADOQuery; Stream:
-  TMemoryStream): boolean;
-var
-  RS: Variant;
-begin
-  Result := false;
-  if Stream.Size < 1 then
-    Exit;
-  try
-    Stream.Position := 0;
-    RS := Idataset.Recordset;
-    Rs.Open(TStreamAdapter.Create(Stream) as IUnknown);
-    Result := true;
-  finally;
-  end;
-end;
-
-function TRmoClient.DatasetToStream(iRecordset: TADOQuery; Stream:
-  TMemoryStream): boolean;
-const
-  adPersistADTG = $00000000;
-var
-  RS: Variant;
-begin
-  Result := false;
-  if iRecordset = nil then
-    Exit;
-  try
-    RS := iRecordset.Recordset;
-    RS.Save(TStreamAdapter.Create(stream) as IUnknown, adPersistADTG);
-    Stream.Position := 0;
-    Result := true;
-  finally;
-  end;
-end;
-
 function TRmoClient.ExeSQl(ISql: string): Integer;
 var
-  llen: Integer;
+  llen, i: Integer;
 begin
   WriteInteger(1);
   WriteInteger(Length(ISql));
@@ -229,7 +194,9 @@ var
 begin
 
   //获取表名
-  lsql := LowerCase(TADOQuery(DataSet).Filter);
+  i := FsqlLst.IndexOf(IntToStr(integer(DataSet)));
+  if i > -1 then
+    lsql := LowerCase(TSelectitems(FsqlLst.Objects[i]).Sql); //  LowerCase(DataSet.Filter);
   if Pos('select', lsql) > 0 then begin
     if lglst = nil then
       lglst := TStringList.Create;
@@ -270,7 +237,9 @@ var
   LblobStream: TStream;
 begin
   //获取表名
-  lsql := LowerCase(DataSet.Filter);
+  i := FsqlLst.IndexOf(IntToStr(integer(DataSet)));
+  if i > -1 then
+    lsql := LowerCase(TSelectitems(FsqlLst.Objects[i]).Sql); //  LowerCase(DataSet.Filter);
   if Pos('select', lsql) > 0 then begin
     if lglst = nil then
       lglst := TStringList.Create;
@@ -325,8 +294,7 @@ begin
             FSqlPart1 := FSqlPart1 + ifthen(i = n, '', ',') + Fields[i].FieldName;
             case Fields[i].DataType of
               ftCurrency, ftBCD, ftWord, ftFloat, ftBytes: Result := FSqlPart2 + ifthen(i = n, '', ',') + Fields[i].AsString;
-              ftSmallint, ftInteger: FSqlPart2 := FSqlPart2 + ifthen(i = n, '', ',') + IntToStr(Fields[i].AsInteger);
-              ftDate, ftTime, ftDateTime: FSqlPart2 := FSqlPart2 + ifthen(i = n, '', ',') + FormatDateTime('yyyy-mm-dd hh:nn:ss', Fields[i].AsDateTime);
+              ftBoolean, ftSmallint, ftInteger: FSqlPart2 := FSqlPart2 + ifthen(i = n, '', ',') + IntToStr(Fields[i].AsInteger);
             else
               FSqlPart2 := FSqlPart2 + ifthen(i = n, '', ',') + '''' + Fields[i].AsString + '''';
             end;
@@ -356,8 +324,7 @@ begin
             case Fields[i].DataType of //
               ftCurrency, ftBCD, ftWord: Result := Result + Fields[i].AsString;
               ftFloat: Result := Result + Fields[i].AsString;
-              ftSmallint, ftInteger: Result := Result + IntToStr(Fields[i].AsInteger);
-//              ftDate, ftTime, ftDateTime:=Result := Result + format IntToStr(Fields[i]AsInteger);
+              ftBytes, ftSmallint, ftInteger: Result := Result + IntToStr(Fields[i].AsInteger);
             else
               Result := Result + '''' + Fields[i].AsString + '''';
             end; // case
@@ -416,6 +383,7 @@ begin
   Ftimer.Tag := 0;
   FisConning := false;
   FIsDisConn := False;
+  FsqlLst := THashedStringList.Create;
 end;
 
 procedure TRmoClient.OnDestory;
@@ -424,14 +392,16 @@ begin
   if FQryForID <> nil then
     FQryForID.Free;
   Ftimer.Free;
+  FsqlLst.Free;
 end;
 
 function TRmoClient.OpenAndataSet(ISql: string;
   IADoquery: TADOQuery): Boolean;
 var
-  llen: Integer;
+  llen, i: Integer;
   ls: string;
   Lend: integer;
+  Litem: TSelectitems;
 begin
   inc(Fsn);
   Lend := 0;
@@ -446,21 +416,25 @@ begin
     raise Exception.Create(ISql);
   end
   else begin
-    if llen = 11 then begin //流方式传数据
-      if gLmemStream = nil then
-        gLmemStream := TMemoryStream.Create;
-      GetZipStream(gLmemStream, self);
-      DatasetFromStream(IADoquery, gLmemStream);
-    end
-    else begin //如果数据量太大继续走文件方式
-      ISql := GetCurrPath + GetDocDate + GetDocTime + IntToStr(Fsn);
-      GetZipFile(ISql);
-      IADoquery.LoadFromFile(ISql);
-    end;
     if IsOPenAutoPost then begin
-      IADoquery.Filter := (ls);
+      //记录着 是否可以自动保存
+      i := FsqlLst.IndexOf(IntToStr(integer(IADoquery)));
+      if i = -1 then begin
+        Litem := TSelectitems.Create;
+        FsqlLst.AddObject(IntToStr(integer(IADoquery)), Litem);
+      end
+      else
+        Litem := TSelectitems(FsqlLst.Objects[i]);
+      Litem.Sql := ISql;
+      //记录一下
+//      IADoquery.Filter := (ls);
       ReadySqls(IADoquery);
     end;
+
+    ISql := GetCurrPath + GetDocDate + GetDocTime + IntToStr(Fsn);
+    GetZipFile(ISql);
+    IADoquery.LoadFromFile(ISql);
+
     DeleteFile(ISql);
     Result := True;
   end;
@@ -472,13 +446,13 @@ var
   lsql: string;
 begin
   //如果有任何一个字段是tblob字段
-  for i := 0 to IAdoquery.Fields.Count - 1 do begin // Iterate
-    if IAdoquery.Fields[i].DataType in [ftBlob, ftOraClob] then begin
-      IAdoquery.BeforePost := OnBeginPost;
-      IAdoquery.BeforeDelete := OnBeforeDelete;
-      exit;
-    end;
-  end; // for
+//  for i := 0 to IAdoquery.Fields.Count - 1 do begin // Iterate
+//    if IAdoquery.Fields[i].DataType in [ftBlob, ftOraClob] then begin
+//      IAdoquery.BeforePost := OnBeginPost;
+//      IAdoquery.BeforeDelete := OnBeforeDelete;
+//      exit;
+//    end;
+//  end; // for
 
   IAdoquery.BeforePost := OnBeginPost;
   IAdoquery.BeforeDelete := OnBeforeDelete;
