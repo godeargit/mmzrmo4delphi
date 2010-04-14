@@ -3,13 +3,14 @@
         创建日期：2008-09-16 17:25:52
         创建者	  马敏钊
         功能:     远程数据库客户端
-        当前版本： v1.1
+        当前版本： v1.4
 
 历史和计划
 v1.0  单元实现
 v1.1  解决不支持自增长字段的问题
 v1.2  解决id号必须是第1个字段的问题
 v1.3  为增加速度，做缓冲不用每次生成语句
+v1.4  在sabason 兄的热心帮助下，解决了流试传输存在的问题，大大提高了传输效率 20100413
 
 *******************************************************}
 
@@ -47,7 +48,6 @@ type
   public
 
     IsInserIDfield: boolean; //是否插入语句 支持ID字段 自增长不允许插入该字段默认是false
-    IsOPenAutoPost: boolean; //是否支持自动Post数据 默认是支持
 
     //连接服务端
     function ConnToSvr(ISvrIP: string; ISvrPort: Integer = 9988): boolean;
@@ -81,7 +81,7 @@ var
 
 implementation
 
-uses untfunctions, sysUtils, UntBaseProctol, DXSock, IniFiles;
+uses untfunctions, sysUtils, UntBaseProctol, DXSock, IniFiles, ADOInt, Variants;
 
 
 procedure TRmoClient.checkLive;
@@ -375,7 +375,6 @@ end;
 procedure TRmoClient.OnCreate;
 begin
   inherited;
-  IsOPenAutoPost := true;
   Ftimer := TTimer.Create(nil);
   Ftimer.OnTimer := OnCheck;
   Ftimer.Interval := 3000;
@@ -395,6 +394,59 @@ begin
   FsqlLst.Free;
 end;
 
+
+
+type
+  TinnerADOQuery = class(TADOQuery)
+  public
+    function LoadFromStream(Stream: TStream): Boolean;
+  end;
+
+function TinnerADOQuery.LoadFromStream(Stream: TStream): Boolean;
+var
+  mRecordSet: _Recordset;
+begin
+  Result := False;
+  Close;
+  DestroyFields;
+  mRecordSet := CoRecordset.Create;
+  try
+    if mRecordSet.State = adStateOpen then mRecordset.Close;
+    Stream.Position := 0;
+    mRecordset.Open(TStreamAdapter.Create(Stream) as IUnknown, EmptyParam, adOpenStatic, adLockBatchOptimistic, adAsyncExecute);
+    Stream.Position := 0;
+    if not mRecordSet.BOF then mRecordset.MoveFirst;
+    RecordSet := mRecordSet;
+    inherited OpenCursor(False);
+    Resync([]);
+    Result := True;
+  except
+        //
+  end;
+end;
+
+var
+  GInnerQry: TinnerADOQuery;
+  gLmemStream: TMemoryStream;
+
+function DatasetFromStream(Idataset: TADOQuery; Stream:
+  TMemoryStream): boolean;
+var
+  RS: Variant;
+begin
+  Result := false;
+  if Stream.Size < 1 then
+    Exit;
+  if GInnerQry = nil then
+    GInnerQry := TinnerADOQuery.Create(nil);
+  try
+    GInnerQry.LoadFromStream(Stream);
+    Idataset.Clone(GInnerQry);
+    Result := true;
+  finally;
+  end;
+end;
+
 function TRmoClient.OpenAndataSet(ISql: string;
   IADoquery: TADOQuery): Boolean;
 var
@@ -406,7 +458,7 @@ begin
   inc(Fsn);
   Lend := 0;
   ls := ISql;
-  WriteInteger(2);
+  WriteInteger(22);
   WriteInteger(Length(ISql));
   Write(ISql);
   llen := ReadInteger();
@@ -416,44 +468,35 @@ begin
     raise Exception.Create(ISql);
   end
   else begin
-    if IsOPenAutoPost then begin
-      //记录着 是否可以自动保存
-      i := FsqlLst.IndexOf(IntToStr(integer(IADoquery)));
-      if i = -1 then begin
-        Litem := TSelectitems.Create;
-        FsqlLst.AddObject(IntToStr(integer(IADoquery)), Litem);
-      end
-      else
-        Litem := TSelectitems(FsqlLst.Objects[i]);
-      Litem.Sql := ISql;
-      //记录一下
-//      IADoquery.Filter := (ls);
-      ReadySqls(IADoquery);
+    //记录着 是否可以自动保存
+    i := FsqlLst.IndexOf(IntToStr(integer(IADoquery)));
+    if i = -1 then begin
+      Litem := TSelectitems.Create;
+      FsqlLst.AddObject(IntToStr(integer(IADoquery)), Litem);
+    end
+    else
+      Litem := TSelectitems(FsqlLst.Objects[i]);
+    Litem.Sql := ISql;
+     //记录一下
+    ReadySqls(IADoquery);
+    if llen = 1 then begin
+      if gLmemStream = nil then
+        gLmemStream := TMemoryStream.Create;
+      GetZipStream(gLmemStream, self);
+      DatasetFromStream(IADoquery, gLmemStream);
+    end
+    else begin
+      ISql := GetCurrPath + GetDocDate + GetDocTime + IntToStr(Fsn);
+      GetZipFile(ISql);
+      IADoquery.LoadFromFile(ISql);
+      DeleteFile(ISql);
     end;
-
-    ISql := GetCurrPath + GetDocDate + GetDocTime + IntToStr(Fsn);
-    GetZipFile(ISql);
-    IADoquery.LoadFromFile(ISql);
-
-    DeleteFile(ISql);
     Result := True;
   end;
 end;
 
 procedure TRmoClient.ReadySqls(IAdoquery: TADOQuery);
-var
-  i, Lindex: integer;
-  lsql: string;
 begin
-  //如果有任何一个字段是tblob字段
-//  for i := 0 to IAdoquery.Fields.Count - 1 do begin // Iterate
-//    if IAdoquery.Fields[i].DataType in [ftBlob, ftOraClob] then begin
-//      IAdoquery.BeforePost := OnBeginPost;
-//      IAdoquery.BeforeDelete := OnBeforeDelete;
-//      exit;
-//    end;
-//  end; // for
-
   IAdoquery.BeforePost := OnBeginPost;
   IAdoquery.BeforeDelete := OnBeforeDelete;
 end;
