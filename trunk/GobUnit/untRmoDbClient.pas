@@ -263,8 +263,6 @@ begin
   else
     ExceptTip('无法自动提交，请先执行select');
 
-
-
   //获取方法
   case TADOQuery(DataSet).State of //
     dsinsert: begin
@@ -288,6 +286,13 @@ begin
               TBlobField(Fields[i]).SaveToStream(LblobStream);
               EnCompressStream(TMemoryStream(LblobStream));
               lBobName := Fields[i].FieldName;
+//------------------------------------------------------------------------------
+// 如果是最后一个字段则跳过之前去掉上次生成的，号  2010-04-21 马敏钊
+//------------------------------------------------------------------------------
+              if i = count - 1 then begin
+                FSqlPart1 := copy(FSqlPart1, 1, length(FSqlPart1) - 1);
+                FSqlPart2 := copy(FSqlPart2, 1, length(FSqlPart2) - 1);
+              end;
               Continue;
             end;
 
@@ -317,6 +322,12 @@ begin
               TBlobField(Fields[i]).SaveToStream(LblobStream);
               EnCompressStream(TMemoryStream(LblobStream));
               lBobName := Fields[i].FieldName;
+//------------------------------------------------------------------------------
+// 如果是最后一个字段则跳过之前去掉上次生成的，号  2010-04-21 马敏钊
+//------------------------------------------------------------------------------
+              if i = count - 1 then begin
+                Result := copy(Result, 1, length(Result) - 1);
+              end;
               Continue;
             end;
 
@@ -411,11 +422,13 @@ begin
   DestroyFields;
   mRecordSet := CoRecordset.Create;
   try
-    if mRecordSet.State = adStateOpen then mRecordset.Close;
+    if mRecordSet.State = adStateOpen then
+      mRecordset.Close;
     Stream.Position := 0;
     mRecordset.Open(TStreamAdapter.Create(Stream) as IUnknown, EmptyParam, adOpenStatic, adLockBatchOptimistic, adAsyncExecute);
     Stream.Position := 0;
-    if not mRecordSet.BOF then mRecordset.MoveFirst;
+    if not mRecordSet.BOF then
+      mRecordset.MoveFirst;
     RecordSet := mRecordSet;
     inherited OpenCursor(False);
     Resync([]);
