@@ -290,8 +290,10 @@ begin
 // 如果是最后一个字段则跳过之前去掉上次生成的，号  2010-04-21 马敏钊
 //------------------------------------------------------------------------------
               if i = count - 1 then begin
-                FSqlPart1 := copy(FSqlPart1, 1, length(FSqlPart1) - 1);
-                FSqlPart2 := copy(FSqlPart2, 1, length(FSqlPart2) - 1);
+                if FSqlPart1[length(FSqlPart1) - 1] = ',' then begin
+                  FSqlPart1 := copy(FSqlPart1, 1, length(FSqlPart1) - 1);
+                  FSqlPart2 := copy(FSqlPart2, 1, length(FSqlPart2) - 1);
+                end;
               end;
               Continue;
             end;
