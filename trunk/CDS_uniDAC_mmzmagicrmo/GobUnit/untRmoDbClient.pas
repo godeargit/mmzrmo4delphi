@@ -3,14 +3,17 @@
         创建日期：2008-09-16 17:25:52
         创建者	  马敏钊
         功能:     远程数据库客户端
-        当前版本： v1.4
+        当前版本： v1.7
 
-历史和计划
+更新历史
 v1.0  单元实现
 v1.1  解决不支持自增长字段的问题
 v1.2  解决id号必须是第1个字段的问题
-v1.3  为增加速度，做缓冲不用每次生成语句
+v1.3  为增加速度，做缓冲不用每次生成语句 ，改变自动更新时导致filter属性暂用的方式
 v1.4  在sabason 兄的热心帮助下，解决了流试传输存在的问题，大大提高了传输效率 20100413
+v1.5  全面修改为支持高效率的UniDAC数据库驱动套件 和ClientDataset (原来是ADO方式)支持所有主流数据库，大幅提高传输效率，且使用方法没有改变
+v1.6  解决流传输存在的BUG  ，修正最后一个字段为blob字段导致语句生成错误的BUG
+v1.7  增加服务端sys.ini文件配置客户端登陆权限，增加批量执行SQL语句接口
 
 *******************************************************}
 
@@ -30,7 +33,8 @@ type
   end;
   TRmoClient = class(TSocketClient)
   private
-    FsqlLst: TStrings; //用来记录已经打开了的数据集 以及对于的语句
+    gLmemStream: TMemoryStream;
+    FCachSQllst, FsqlLst: TStrings; //用来记录已经打开了的数据集 以及对于的语句
     FSqlPart1, FSqlPart2: string;
 
     Fsn: Cardinal;
@@ -65,6 +69,8 @@ type
     function ExeSQl(ISql: string): Integer;
     //打开一个过数据集
     function OpenAndataSet(ISql: string; IADoquery: TClientDataSet): Boolean;
+    //批量提交语句  立即执行所传入的语句列表
+    function BathExecSqls(IsqlList: TStrings): Integer;
 
     procedure OnCreate; override;
     procedure OnDestory; override;
@@ -85,6 +91,28 @@ implementation
 
 uses untfunctions, sysUtils, UntBaseProctol, DXSock, IniFiles, ADOInt, Variants;
 
+
+function TRmoClient.BathExecSqls(IsqlList: TStrings): Integer;
+var
+  IErr: string;
+  llen, i: Integer;
+  ls: TMemoryStream;
+begin
+  //批量执行SQL语句
+  WriteInteger(110);
+  ls := TMemoryStream.Create;
+  IsqlList.SaveToStream(ls);
+  SendZIpStream(ls, Self);
+  llen := ReadInteger();
+  if llen = -1 then begin
+    llen := ReadInteger();
+    IErr := ReadStr(llen);
+    raise Exception.Create(IErr);
+  end
+  else begin
+    Result := llen;
+  end;
+end;
 
 procedure TRmoClient.checkLive;
 begin
@@ -114,6 +142,8 @@ begin
     DisConn;
     FHost := ISvrIP;
     FPort := ISvrPort;
+    Facc := Iacc;
+    iPsd := iPsd;
     FIsDisConn := False;
     if not IsConnected then begin
       try
@@ -153,7 +183,7 @@ end;
 procedure TConnthread.execute;
 begin
   try
-    if Client.ConnToSvr(Client.FHost, Client.FPort) then begin
+    if Client.ConnToSvr(Client.FHost, Client.FPort, Client.Facc, Client.Fpsd) then begin
       Client.FisConning := True;
     end;
   finally
@@ -393,6 +423,7 @@ end;
 procedure TRmoClient.OnCreate;
 begin
   inherited;
+  FCachSQllst := THashedStringList.Create;
   Ftimer := TTimer.Create(nil);
   Ftimer.OnTimer := OnCheck;
   Ftimer.Interval := 3000;
@@ -401,15 +432,18 @@ begin
   FisConning := false;
   FIsDisConn := False;
   FsqlLst := THashedStringList.Create;
+  gLmemStream := TMemoryStream.Create;
 end;
 
 procedure TRmoClient.OnDestory;
 begin
   inherited;
+  FCachSQllst.Free;
   if FQryForID <> nil then
     FQryForID.Free;
   Ftimer.Free;
   FsqlLst.Free;
+  gLmemStream.Free;
 end;
 
 
@@ -454,8 +488,7 @@ begin
 end;
 
 
-var
-  gLmemStream: TMemoryStream;
+
 
 function DatasetFromStream(Idataset: TClientDataSet; Stream:
   TMemoryStream): boolean;
