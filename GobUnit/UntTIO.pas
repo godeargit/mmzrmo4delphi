@@ -68,17 +68,17 @@ uses StdCtrls, Forms;
 const
   {·Ö¸î·ûºÅ}
   CSplitStr = '===============================================================';
-  ClogFileName = '.log';
+  ClogFileName = '.txt';
   { TGameLogFile }
 
 procedure TGameLogFile.AddLog(Icon: string; const LogLevel: integer = 0);
 begin
-  Icon := Icon + #13;
+  Icon := Icon+#13#10;
   FileWrite(FText, PChar(Icon)^, Length(ICon));
   //{$I-}
-  //  Append(FText);
-  //  Writeln(FText, icon);
-  //  IOResult;
+//    Append(FText);
+//     Writeln(FText, icon);
+//    IOResult;
   //{$I+}
 end;
 
@@ -113,8 +113,8 @@ begin
   if not FileExists(FFileParth + ltep + ClogFileName) then
     FText := (FileCreate(FFileParth + ltep + ClogFileName))
   else
-    FText := (FileOpen(FFileParth + ltep + ClogFileName, fmOpenWrite ));
-  FileSeek(FText,soFromEnd,soFromEnd);
+    FText := (FileOpen(FFileParth + ltep + ClogFileName, fmOpenWrite));
+  FileSeek(FText, soFromEnd, soFromEnd);
 end;
 
 destructor TGameLogFile.Destroy;
