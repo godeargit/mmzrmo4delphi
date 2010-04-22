@@ -138,10 +138,19 @@ end;
 function TSocketClient.GetZipStream(IStream: TStream; IConn: TDXsock): integer;
 var
   LZipMM: TMemoryStream;
+  LBuff: Pointer;
+  i, ltot, x: Integer;
 begin
   LZipMM := TMemoryStream(IStream);
-  LZipMM.Size := IConn.ReadInteger;
-  IConn.ReceiveBuf(LZipMM.Memory^, LZipMM.Size);
+  ltot := IConn.ReadInteger;
+  LZipMM.Size := ltot;
+  LBuff := LZipMM.Memory;
+  x := 0;
+  while ltot > 0 do begin
+    i := Read(PChar(LBuff) + x, ltot);
+    Dec(ltot, i);
+    inc(x, i);
+  end; // while
   DeCompressStream(LZipMM);
 end;
 
