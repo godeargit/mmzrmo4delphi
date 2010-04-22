@@ -19,6 +19,7 @@ type
   public
     FHost: string;
     FPort: Word;
+    Facc,Fpsd:string;
     constructor Create;
     destructor Destroy; override;
     procedure WriteBuff(var obj; Ilen: integer);

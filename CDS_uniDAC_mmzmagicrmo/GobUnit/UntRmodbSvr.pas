@@ -22,8 +22,10 @@ type
     function ReadStream(Istream: TStream; ClientThread: TDXClientThread):
       TMemoryStream;
   public
-    Db: TDBMrg;
     GGDBPath: string;
+    gLastCpTime: Cardinal;
+    gLmemStream: TMemoryStream;
+    glBatchLst: TStrings;
     //连接到数据库
     function ConnToDb(IConnStr: string): boolean;
     function OnCheckLogin(ClientThread: TDXClientThread): boolean; override;
@@ -93,7 +95,9 @@ procedure TRmodbSvr.OnCreate(ISocket: TBaseSocketServer);
 begin
   inherited;
   Flock := TCriticalSection.Create;
-
+  gLmemStream := TMemoryStream.Create;
+  gLastCpTime := 0;
+  glBatchLst := TStringList.Create;
 end;
 
 function StreamToVarArray(const S: TStream): Variant;
@@ -135,9 +139,7 @@ begin
     VarArrayUnLock(V);
   end;
 end;
-var
-  gLastCpTime: Cardinal = 0;
-  gLmemStream: TMemoryStream;
+
 
 function TRmodbSvr.OnDataCase(ClientThread: TDXClientThread;
   Ihead: integer): Boolean;
@@ -176,17 +178,47 @@ begin
             Flock.Leave;
           end;
         end;
+      110: begin //批量执行语句
+          Flock.Enter;
+          try
+            gLmemStream.Size := 0;
+            Socket.GetZipStream(gLmemStream, ClientThread);
+            glBatchLst.LoadFromStream(gLmemStream);
+            gLmemStream.Size := 0;
+            if Shower <> nil then
+              Shower.AddShow('客户端批量执行语句', [LSQl]);
+            try
+              if glBatchLst.Count > 0 then begin
+                for Llen := 0 to glBatchLst.Count - 1 do begin // Iterate
+                  DataModel.UniSQL1.SQL.Clear;
+                  DataModel.UniSQL1.SQL.Add(glBatchLst[Llen]);
+                  DataModel.UniSQL1.Execute;
+                end; // for
+              end;
+              ClientThread.Socket.WriteInteger(1);
+            except
+              on e: Exception do begin
+                ClientThread.Socket.WriteInteger(-1);
+                ClientThread.Socket.WriteInteger(Length(e.Message));
+                ClientThread.Socket.Write(e.Message);
+                if Shower <> nil then
+                  Shower.AddShow('客户端执行语句异常<%s>', [e.Message]);
+              end;
+            end;
+          finally
+            Flock.Leave;
+          end;
+        end;
       2: begin //执行一个查询语句
           Flock.Enter;
           try
+            gLmemStream.Size := 0;
             Llen := ClientThread.Socket.ReadInteger;
             LSQl := ClientThread.Socket.ReadStr(Llen);
-            if Shower <> nil then
-              Shower.AddShow('客户端执行语句<%s>', [LSQl]);
-            if gLmemStream = nil then
-              gLmemStream := TMemoryStream.Create;
             try
 //              ls := GetCurrPath + GetDocDate + GetDocTime;
+              if Shower <> nil then
+                Shower.AddShow('客户端执行查询语句<%s>', [LSQl]);
               DataModel.Gqry.Close;
               DataModel.Gqry.SQL.Clear;
               DataModel.Gqry.SQL.Add(LSQl);
@@ -207,12 +239,9 @@ begin
             Flock.Leave;
           end;
         end;
-
       3: begin //查询服务端数据库连接是否正常
-
         end;
       4: begin //激活包
-
         end;
       5: begin
           Flock.Enter;
@@ -230,6 +259,7 @@ begin
       6: begin
           Flock.Enter;
           try
+            gLmemStream.Size := 0;
             Llen := ClientThread.Socket.ReadInteger;
             LSQl := ClientThread.Socket.ReadStr(Llen);
             gLmemStream := ReadStream(gLmemStream, ClientThread);
@@ -265,11 +295,9 @@ end;
 procedure TRmodbSvr.OnDestroy;
 begin
   inherited;
-  try
-    Db.Free;
-  except
-  end;
   Flock.Free;
+  glBatchLst.Free;
+  gLmemStream.Free;
 end;
 
 

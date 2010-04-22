@@ -23,6 +23,8 @@ type
     ts_two: TTabSheet;
     pnlower: TPanel;
     ListBox1: TListBox;
+    btn1: TButton;
+    btn2: TButton;
     procedure FormCreate(Sender: TObject);
     procedure Button5Click(Sender: TObject);
     procedure Button2Click(Sender: TObject);
@@ -31,6 +33,8 @@ type
     procedure Button3Click(Sender: TObject);
     procedure Button6Click(Sender: TObject);
     procedure FormShow(Sender: TObject);
+    procedure btn1Click(Sender: TObject);
+    procedure btn2Click(Sender: TObject);
   private
     { Private declarations }
   public
@@ -41,29 +45,27 @@ var
   frm_main: Tfrm_main;
 implementation
 
-uses untfunctions, ViewGraph;
+uses untfunctions, ViewGraph, PMyBaseDebug;
 
 {$R *.dfm}
 
 procedure Tfrm_main.FormCreate(Sender: TObject);
 begin
-  //因为ADO对象 不能再没有连接数据库的情况下使用，所以建立一个空的access数据库连接
-  Gob_DBMrg := TDBMrg.Create(TDBMrg.GetAccessConnStr(GetCurrPath + 'temp.mdb'));
 
+  Gob_DBMrg := TDBMrg.Create();
   //创建客户端对象  连接服务端9000端口
   Gob_Rmo := TRmoHelper.Create(9000);
-  //允许post时 同时填充id字段
-  Gob_Rmo.FRmoClient.IsInserIDfield := True;
   //连接服务端 为了简单演示填为本机  如果需要连接远程机器改为其他机器的IP 即可
-  if Gob_Rmo.ReConnSvr('127.0.0.1',-1,'client','456') = false then begin
+  //登陆时需要填上用户名和密码 服务端配置文件sys.ini中做设置。
+  if Gob_Rmo.ReConnSvr('127.0.0.1', -1, 'client', '456') = false then begin
     ErrorInfo('连接数据库服务程序失败，请先启动服务程序!');
     Application.Terminate;
   end;
-
-  //获取一个ADOQUERY
+  //获取一个
   Qryopt := Gob_DBMrg.GetAnQuery('Qryopt');
-  //获取另外一个adoquery 作为和dbgrid连接
+  //获取另外一个数据集 作为和dbgrid连接
   QryShower := Gob_DBMrg.GetAnQuery('qry_show');
+
   ds1.DataSet := QryShower;
 
   Button5.Click;
@@ -73,7 +75,6 @@ procedure Tfrm_main.Button5Click(Sender: TObject);
 begin
   //查询远程数据库的表 并显示到dbgrid里边
   Gob_Rmo.OpenTable('treeinfo', QryShower);
-
 end;
 
 procedure Tfrm_main.Button2Click(Sender: TObject);
@@ -91,9 +92,7 @@ begin
   QryShower.FieldByName('Flevel').AsInteger := 10;
   QryShower.FieldByName('kind').AsInteger := 1;
   QryShower.Post;
-  TipInfo('新增记录成功');
-
-
+  TipInfo('新增记录成功新纪录ID号<%d>', [QryShower.FieldByName('id').AsInteger]);
 end;
 
 procedure Tfrm_main.Button4Click(Sender: TObject);
@@ -146,6 +145,53 @@ begin
   View_Graph.Show;
   ListBox1.OnClick := View_Graph.OnModelTreeClick;
 
+end;
+
+procedure Tfrm_main.btn1Click(Sender: TObject);
+var
+  i: Integer;
+  lst: TStringList;
+
+begin
+  //方法一
+  Gob_Rmo.AddBathExecSql('insert into treeinfo(caption) values(''%s'')', ['批量测试1']);
+  Gob_Rmo.AddBathExecSql('insert into treeinfo(caption) values(''%s'')', ['批量测试2']);
+  Gob_Rmo.AddBathExecSql('insert into treeinfo(caption) values(''批量测试3'')');
+  Gob_Rmo.BathExec; //这一句才真正提交到服务器执行
+
+  //方法2
+  lst := TStringList.Create;
+  lst.Add(format('insert into treeinfo(caption) values(''%s'')', ['批量测试1']));
+  lst.Add(format('insert into treeinfo(caption) values(''%s'')', ['批量测试2']));
+  lst.Add('insert into treeinfo(caption) values(''批量测试3'')');
+  Gob_Rmo.BathExecSqls(lst); //这一句才真正提交到服务器执行
+  lst.Free;
+
+
+end;
+
+procedure Tfrm_main.btn2Click(Sender: TObject);
+var
+  i: Integer;
+  lst: TStringList;
+begin
+ //执行自动生成语句插入1000条记录
+  Gob_Debug.StartLogTime;
+  for i := 0 to 1000 - 1 do begin // Iterate
+    QryShower.Insert;
+    QryShower.FieldByName('caption').AsString := format('批量测试%d', [i + 1]);
+    QryShower.Post;
+  end; // for
+  Gob_Rmo.BathExec; //这一句才真正提交到服务器执行
+  Gob_Debug.ShowVar(Format('Post方式，批量插入1000条记录，使用了%d秒', [Gob_Debug.EndLogTIme div 1000]));
+
+  //执行插入1000条记录
+  Gob_Debug.StartLogTime;
+  for i := 0 to 1000 - 1 do begin // Iterate
+    Gob_Rmo.AddBathExecSql('insert into treeinfo(caption) values(''大批量测试%d'')', [i + 1]);
+  end; // for
+  Gob_Rmo.BathExec; //这一句才真正提交到服务器执行
+  Gob_Debug.ShowVar(Format('批量插入1000条记录，使用了%d秒', [Gob_Debug.EndLogTIme div 1000]));
 end;
 
 end.

@@ -10,30 +10,31 @@ uses
 type
   TRmoHelper = class
 
+
   public
-//    FChannel: tROIndyTCPChannel; // 设置Host 和 Port
-//    FMessage: tROBinMessage;
-//    FServer: tRORemoteService;
     FPublic: TClientDataSet;
+    FsqlBatchlst: TStrings;
     FLastSql: string; //最后一次查询的语句
     FRmoClient: TRmoClient;
 
-      {查询ISqlStr到IADOQry控件}
-    procedure MyQuery(IADOQry: TClientDataSet; ISqlStr: string);
+      {查询ISqlStr到TClientDataSet控件}
+    procedure MyQuery(IQry: TClientDataSet; ISqlStr: string);
     {执行ISqlStr语句}
     procedure MyExec(ISqlStr: string);
     function GetCount(ItabName, IFieldName: string; Ivalue: variant):
       Cardinal;
     function OpenDataset(ISql: string; const Args: array of const): TClientDataSet; overload;
     function OpenDataset(ISql: string): TClientDataSet; overload;
-    function OpenDataset(Iado: TClientDataSet; ISql: string): TClientDataSet; overload;
-    function OpenDataset(Iado: TClientDataSet; ISql: string; const Args: array of const):
-      TClientDataSet; overload;
+    function OpenDataset(IQry: TClientDataSet; ISql: string): TClientDataSet;
+      overload;
+    function OpenDataset(IQry: TClientDataSet; ISql: string; const Args: array of
+      const): TClientDataSet; overload;
 
-    function ExecAnSql(Iado: TClientDataSet; Isql: string; const Args: array of const): Integer; overload;
+    function ExecAnSql(IQry: TClientDataSet; Isql: string; const Args: array of
+      const): Integer; overload;
     function ExecAnSql(Isql: string; const Args: array of const): Integer; overload;
 
-    function OpenTable(ItabName: string; Iado: TClientDataSet): TClientDataSet;
+    function OpenTable(ItabName: string; IQry: TClientDataSet): TClientDataSet;
 
 
    // function OpenTable(ItabName: string; Iado: TClientDataSet): TClientDataSet; overload;
@@ -43,6 +44,16 @@ type
     //重新连接服务器
     function ReConnSvr(ISvrIP: string; ISvrPort: Integer = -1; Iacc: string = '';
       iPsd: string = ''): boolean;
+    //批量提交语句  立即执行所传入的语句列表
+    function BathExecSqls(IsqlList: TStrings): Integer;
+    //添加批量提交语句到发送列表
+    function AddBathExecSql(Isql: string): boolean; overload;
+    //添加批量提交语句 等待执行          BathExec
+    function AddBathExecSql(Isql: string; const Args: array of const): boolean; overload;
+    //立即将所有添加的语句发送到服务端执行
+    function BathExec: Integer;
+
+
     constructor Create(Iport: integer = 9989);
     destructor Destroy; override;
   end;
@@ -92,10 +103,9 @@ begin
   end
 end;
 
-procedure TRmoHelper.MyQuery(IADOQry: TClientDataSet;
-  ISqlStr: string);
+procedure TRmoHelper.MyQuery(IQry: TClientDataSet; ISqlStr: string);
 begin
-  FRmoClient.OpenAndataSet(ISqlStr, IADOQry);
+  FRmoClient.OpenAndataSet(ISqlStr, IQry);
 end;
 
 procedure TRmoHelper.MyExec(ISqlStr: string);
@@ -111,29 +121,17 @@ end;
 
 constructor TRmoHelper.Create(Iport: integer = 9989);
 begin
-//  FChannel := tROIndyTCPChannel.Create(nil); // 设置Host 和 Port
-//  FChannel.Port := 8090;
-//  FChannel.Host := '127.0.0.1';
-//  FMessage := tROBinMessage.Create(nil);
-//  FServer := tRORemoteService.Create(nil);
-//  FServer.Channel := FChannel;
-//  FServer.Message := FMessage;
-//  FServer.ServiceName := 'OracleAccessService';
-
   FPublic := TClientDataSet.Create(nil);
   FRmoClient := TRmoClient.Create;
   FRmoClient.FHost := '127.0.0.1';
   FRmoClient.FPort := Iport;
-
+  FsqlBatchlst := TStringList.Create;
 end;
 
 destructor TRmoHelper.Destroy;
 begin
   FRmoClient.Free;
-//  FPublic.Free;
-//  FChannel.Free;
-//  FMessage.Free;
-//  FServer.Free;
+  FsqlBatchlst.Free;
   inherited;
 end;
 
@@ -154,18 +152,19 @@ begin
   Result := FPublic;
 end;
 
-function TRmoHelper.OpenDataset(Iado: TClientDataSet; ISql: string): TClientDataSet;
-begin
-  MyQuery(Iado, ISql);
-  Result := Iado
-end;
-
-function TRmoHelper.OpenDataset(Iado: TClientDataSet; ISql: string; const Args: array of const):
+function TRmoHelper.OpenDataset(IQry: TClientDataSet; ISql: string):
   TClientDataSet;
 begin
+  MyQuery(IQry, ISql);
+  Result := IQry;
+end;
+
+function TRmoHelper.OpenDataset(IQry: TClientDataSet; ISql: string; const Args:
+  array of const): TClientDataSet;
+begin
   ISql := Format(Isql, Args);
-  MyQuery(Iado, ISql);
-  Result := Iado
+  MyQuery(IQry, ISql);
+  Result := IQry;
 end;
 
 function TRmoHelper.GetCount(ItabName, IFieldName: string;
@@ -179,8 +178,8 @@ begin
 end;
 
 
-function TRmoHelper.ExecAnSql(Iado: TClientDataSet; Isql: string;
-  const Args: array of const): Integer;
+function TRmoHelper.ExecAnSql(IQry: TClientDataSet; Isql: string; const Args:
+  array of const): Integer;
 begin
   MyExec(Format(Isql, Args));
 end;
@@ -205,11 +204,11 @@ begin
   end;
 end;
 
-function TRmoHelper.OpenTable(ItabName: string;
-  Iado: TClientDataSet): TClientDataSet;
+function TRmoHelper.OpenTable(ItabName: string; IQry: TClientDataSet):
+  TClientDataSet;
 begin
-  MyQuery(Iado, Format('Select * from %s ', [ItabName]));
-  Result := Iado;
+  MyQuery(IQry, Format('Select * from %s ', [ItabName]));
+  Result := IQry;
 end;
 
 function TRmoHelper.ReConnSvr(ISvrIP: string; ISvrPort: Integer = -1;
@@ -218,6 +217,33 @@ begin
   if IsLegalIP(ISvrIP) = false then
     HostToIP(ISvrIP, ISvrIP);
   Result := FRmoClient.ReConn(ISvrIP, ISvrPort, Iacc, ipsd);
+end;
+
+function TRmoHelper.AddBathExecSql(Isql: string): boolean;
+begin
+  Result := true;
+  if Isql <> '' then
+    FsqlBatchlst.Add(Isql);
+end;
+
+function TRmoHelper.BathExecSqls(IsqlList: TStrings): Integer;
+begin
+  Result := FRmoClient.BathExecSqls(IsqlList);
+end;
+
+function TRmoHelper.AddBathExecSql(Isql: string;
+  const Args: array of const): boolean;
+begin
+  Isql := format(Isql, Args);
+  Result := AddBathExecSql(Isql);
+end;
+
+function TRmoHelper.BathExec: Integer;
+begin
+  if FsqlBatchlst.Count > 0 then begin
+    Result := FRmoClient.BathExecSqls(FsqlBatchlst);
+    FsqlBatchlst.Clear;
+  end;
 end;
 
 initialization
