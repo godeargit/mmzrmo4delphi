@@ -182,7 +182,6 @@ begin
     QryShower.FieldByName('caption').AsString := format('批量测试%d', [i + 1]);
     QryShower.Post;
   end; // for
-  Gob_Rmo.BathExec; //这一句才真正提交到服务器执行
   Gob_Debug.ShowVar(Format('Post方式，批量插入1000条记录，使用了%d秒', [Gob_Debug.EndLogTIme div 1000]));
 
   //执行插入1000条记录
