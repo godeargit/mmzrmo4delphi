@@ -18,10 +18,11 @@ object frm_main: Tfrm_main
   object pnl_head: TPanel
     Left = 0
     Top = 0
-    Width = 677
+    Width = 669
     Height = 49
     Align = alTop
     BevelOuter = bvNone
+    ParentBackground = False
     TabOrder = 0
     object lbl_hint: TLabel
       Left = 72
@@ -37,8 +38,8 @@ object frm_main: Tfrm_main
   object pgc_ctl: TPageControl
     Left = 0
     Top = 49
-    Width = 677
-    Height = 430
+    Width = 669
+    Height = 426
     ActivePage = ts_one
     Align = alClient
     TabOrder = 1
@@ -47,10 +48,11 @@ object frm_main: Tfrm_main
       object DBGrid1: TDBGrid
         Left = 0
         Top = 0
-        Width = 669
+        Width = 661
         Height = 320
         Align = alTop
         DataSource = ds1
+        ImeName = 'Chinese (Simplified) - US Keyboard'
         TabOrder = 0
         TitleFont.Charset = DEFAULT_CHARSET
         TitleFont.Color = clWindowText
@@ -137,19 +139,21 @@ object frm_main: Tfrm_main
       object pnlower: TPanel
         Left = 137
         Top = 0
-        Width = 532
-        Height = 402
+        Width = 524
+        Height = 398
         Align = alClient
         Caption = 'pnlower'
+        ParentBackground = False
         TabOrder = 0
       end
       object ListBox1: TListBox
         Left = 0
         Top = 0
         Width = 137
-        Height = 402
+        Height = 398
         Align = alLeft
         DragMode = dmAutomatic
+        ImeName = 'Chinese (Simplified) - US Keyboard'
         ItemHeight = 13
         Items.Strings = (
           #25302#25918#33410#28857'1'

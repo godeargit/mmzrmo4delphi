@@ -198,6 +198,7 @@ begin
               ClientThread.Socket.WriteInteger(1);
             except
               on e: Exception do begin
+                glBatchLst.SaveToFile('D:\1.txt'); 
                 ClientThread.Socket.WriteInteger(-1);
                 ClientThread.Socket.WriteInteger(Length(e.Message));
                 ClientThread.Socket.Write(e.Message);
