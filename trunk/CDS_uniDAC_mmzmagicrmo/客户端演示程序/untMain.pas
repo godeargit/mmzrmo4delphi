@@ -176,13 +176,13 @@ var
   lst: TStringList;
 begin
  //执行自动生成语句插入1000条记录
-  Gob_Debug.StartLogTime;
-  for i := 0 to 1000 - 1 do begin // Iterate
-    QryShower.Insert;
-    QryShower.FieldByName('caption').AsString := format('批量测试%d', [i + 1]);
-    QryShower.Post;
-  end; // for
-  Gob_Debug.ShowVar(Format('Post方式，批量插入1000条记录，使用了%d秒', [Gob_Debug.EndLogTIme div 1000]));
+//  Gob_Debug.StartLogTime;
+//  for i := 0 to 1000 - 1 do begin // Iterate
+//    QryShower.Insert;
+//    QryShower.FieldByName('caption').AsString := format('批量测试%d', [i + 1]);
+//    QryShower.Post;
+//  end; // for
+//  Gob_Debug.ShowVar(Format('Post方式，批量插入1000条记录，使用了%d秒', [Gob_Debug.EndLogTIme div 1000]));
 
   //执行插入1000条记录
   Gob_Debug.StartLogTime;

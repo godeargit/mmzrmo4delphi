@@ -300,7 +300,7 @@ begin
 
             FSqlPart1 := FSqlPart1 + ifthen(i = n, '', ',') + Fields[i].FieldName;
             case Fields[i].DataType of
-              ftCurrency, ftBCD, ftWord, ftFloat, ftBytes: Result := FSqlPart2 + ifthen(i = n, '', ',') + Fields[i].AsString;
+              ftCurrency, ftBCD, ftWord, ftFloat, ftBytes: FSqlPart2 := FSqlPart2 + ifthen(i = n, '', ',') + ifthen(Fields[i].AsString='','0',Fields[i].AsString);
               ftBoolean, ftSmallint, ftInteger: FSqlPart2 := FSqlPart2 + ifthen(i = n, '', ',') + IntToStr(Fields[i].AsInteger);
             else
               FSqlPart2 := FSqlPart2 + ifthen(i = n, '', ',') + '''' + Fields[i].AsString + '''';
