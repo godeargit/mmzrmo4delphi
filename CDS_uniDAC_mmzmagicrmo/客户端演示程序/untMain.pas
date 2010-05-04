@@ -25,6 +25,12 @@ type
     ListBox1: TListBox;
     btn1: TButton;
     btn2: TButton;
+    ts_sub: TTabSheet;
+    ds_master: TDataSource;
+    ds_slave: TDataSource;
+    DBGrid2: TDBGrid;
+    DBGrid3: TDBGrid;
+    Label1: TLabel;
     procedure FormCreate(Sender: TObject);
     procedure Button5Click(Sender: TObject);
     procedure Button2Click(Sender: TObject);
@@ -35,10 +41,11 @@ type
     procedure FormShow(Sender: TObject);
     procedure btn1Click(Sender: TObject);
     procedure btn2Click(Sender: TObject);
+    procedure pgc_ctlChange(Sender: TObject);
   private
     { Private declarations }
   public
-    QryShower, Qryopt: TClientDataSet;
+    QryShower, Qryopt, QryMaster, QrySlave: TClientDataSet;
   end;
 
 var
@@ -191,6 +198,23 @@ begin
   end; // for
   Gob_Rmo.BathExec; //这一句才真正提交到服务器执行
   Gob_Debug.ShowVar(Format('批量插入1000条记录，使用了%d秒', [Gob_Debug.EndLogTIme div 1000]));
+end;
+
+procedure Tfrm_main.pgc_ctlChange(Sender: TObject);
+begin
+  if pgc_ctl.ActivePageIndex = 2 then begin
+    if QryMaster = nil then begin
+      QryMaster := Gob_DBMrg.GetAnQuery('QryMaster');
+      ds_master.DataSet := QryMaster;
+      QrySlave := Gob_DBMrg.GetAnQuery('QrySlave');
+      ds_slave.DataSet := QrySlave;
+      QrySlave.MasterSource := ds_master;
+      QrySlave.MasterFields := 'id';
+      QrySlave.IndexFieldNames := 'fpid'
+    end;
+    Gob_Rmo.OpenTable('Tmaster', QryMaster);
+    Gob_Rmo.OpenDataset(QrySlave, 'select * from Tslave');
+  end;
 end;
 
 end.
