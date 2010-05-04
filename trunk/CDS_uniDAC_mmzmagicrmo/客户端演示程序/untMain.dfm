@@ -18,7 +18,7 @@ object frm_main: Tfrm_main
   object pnl_head: TPanel
     Left = 0
     Top = 0
-    Width = 669
+    Width = 677
     Height = 49
     Align = alTop
     BevelOuter = bvNone
@@ -38,17 +38,18 @@ object frm_main: Tfrm_main
   object pgc_ctl: TPageControl
     Left = 0
     Top = 49
-    Width = 669
-    Height = 426
+    Width = 677
+    Height = 430
     ActivePage = ts_one
     Align = alClient
     TabOrder = 1
+    OnChange = pgc_ctlChange
     object ts_one: TTabSheet
       Caption = #36828#31243#25968#25454#28436#31034
       object DBGrid1: TDBGrid
         Left = 0
         Top = 0
-        Width = 661
+        Width = 669
         Height = 320
         Align = alTop
         DataSource = ds1
@@ -97,8 +98,8 @@ object frm_main: Tfrm_main
         OnClick = Button4Click
       end
       object Button5: TButton
-        Left = 1
-        Top = 335
+        Left = 3
+        Top = 336
         Width = 75
         Height = 25
         Caption = #26597#35810#26174#31034
@@ -139,8 +140,8 @@ object frm_main: Tfrm_main
       object pnlower: TPanel
         Left = 137
         Top = 0
-        Width = 524
-        Height = 398
+        Width = 532
+        Height = 402
         Align = alClient
         Caption = 'pnlower'
         ParentBackground = False
@@ -150,7 +151,7 @@ object frm_main: Tfrm_main
         Left = 0
         Top = 0
         Width = 137
-        Height = 398
+        Height = 402
         Align = alLeft
         DragMode = dmAutomatic
         ImeName = 'Chinese (Simplified) - US Keyboard'
@@ -162,9 +163,56 @@ object frm_main: Tfrm_main
         TabOrder = 1
       end
     end
+    object ts_sub: TTabSheet
+      Caption = #20027#20174#34920#28436#31034
+      ImageIndex = 2
+      object Label1: TLabel
+        Left = 70
+        Top = 185
+        Width = 169
+        Height = 13
+        Caption = #19978#36793#26159#20027#34920'  '#19979#36793#26159#20174#34920
+      end
+      object DBGrid2: TDBGrid
+        Left = 0
+        Top = 0
+        Width = 669
+        Height = 171
+        Align = alTop
+        DataSource = ds_master
+        TabOrder = 0
+        TitleFont.Charset = DEFAULT_CHARSET
+        TitleFont.Color = clWindowText
+        TitleFont.Height = -11
+        TitleFont.Name = 'MS Sans Serif'
+        TitleFont.Style = []
+      end
+      object DBGrid3: TDBGrid
+        Left = 0
+        Top = 213
+        Width = 669
+        Height = 189
+        Align = alBottom
+        DataSource = ds_slave
+        TabOrder = 1
+        TitleFont.Charset = DEFAULT_CHARSET
+        TitleFont.Color = clWindowText
+        TitleFont.Height = -11
+        TitleFont.Name = 'MS Sans Serif'
+        TitleFont.Style = []
+      end
+    end
   end
   object ds1: TDataSource
     Left = 20
     Top = 169
+  end
+  object ds_master: TDataSource
+    Left = 633
+    Top = 82
+  end
+  object ds_slave: TDataSource
+    Left = 638
+    Top = 300
   end
 end
