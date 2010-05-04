@@ -42,7 +42,7 @@ var
 
 implementation
 
-uses sysUtils, pmybasedebug, DXSock, db, DM, Variants, UntCFGer;
+uses sysUtils, pmybasedebug, DXSock, db, DM, Variants, UntCFGer, IniFiles;
 
 { TRmoSvr }
 
@@ -140,16 +140,82 @@ begin
   end;
 end;
 
+var
+  lini: TIniFile;
+
+procedure MGetFileListToStr(var Resp: string; ISpit: string; iFilter, iPath:
+  string; ContainSubDir: Boolean = True; INeedPath: boolean = True);
+var
+  FSearchRec, DSearchRec: TSearchRec;
+  FindResult: Cardinal;
+begin
+  FindResult := FindFirst(iPath + iFilter, sysutils.faAnyFile, FSearchRec);
+  try
+    while FindResult = 0 do begin
+      if ((FSearchRec.Attr and faDirectory) = faDirectory) or (FSearchRec.Name = '.') or (FSearchRec.Name = '..') or (ExtractFileExt(FSearchRec.Name) = '.lnk') then begin
+        FindResult := FindNext(FSearchRec);
+        Continue;
+      end;
+      if INeedPath then
+        Resp := Resp + (iPath + FSearchRec.Name)
+      else
+        Resp := Resp + FSearchRec.Name;
+      Resp := Resp + ISpit;
+      FindResult := FindNext(FSearchRec);
+    end;
+    if ContainSubDir then begin
+      FindResult := FindFirst(iPath + iFilter, faDirectory, DSearchRec);
+      while FindResult = 0 do begin
+        if ((DSearchRec.Attr and faDirectory) = faDirectory)
+          and (DSearchRec.Name <> '.') and (DSearchRec.Name <> '..') then begin
+          MGetFileListToStr(Resp, ISpit, iFilter, iPath + DSearchRec.Name + '\', ContainSubDir);
+        end;
+        FindResult := FindNext(DSearchRec);
+      end;
+    end;
+  finally
+    sysUtils.FindClose(FSearchRec);
+    sysUtils.FindClose(DSearchRec);
+  end;
+end;
 
 function TRmodbSvr.OnDataCase(ClientThread: TDXClientThread;
   Ihead: integer): Boolean;
 var
+  i: Integer;
   Llen: integer;
   LSQl, ls: string;
 begin
   Result := True;
   try
     case Ihead of //
+      9998: begin
+        //客户端查询升级信息
+          if FileExists(GetCurrPath() + 'update.ini') then begin
+            if lini = nil then
+              lini := TIniFile.Create(GetCurrPath + 'update.ini');
+            ClientThread.Socket.WriteInteger(1);
+            ClientThread.Socket.WriteInteger(lini.ReadInteger('info', 'ver', 0));
+            i:= lini.ReadInteger('info', 'isfrce', 1);
+            ClientThread.Socket.WriteInteger(i);
+            ClientThread.Socket.WriteLn(GetCurrPath);
+            ClientThread.Socket.WriteLn(lini.ReadString('info', 'hint', '无'));
+            MGetFileListToStr(ls, '|', '*.*', GetCurrPath + lini.ReadString('info', 'filepath', 'update'), True);
+            ClientThread.Socket.WriteInteger(length(ls));
+            ClientThread.Socket.Write(ls);
+          end
+          else
+            ClientThread.Socket.WriteInteger(0);
+        end;
+      9997: begin
+          ls := ClientThread.Socket.ReadLn(10000);
+          if FileExists(ls) then begin
+            ClientThread.Socket.WriteInteger(1);
+            Socket.SendZIpFile(ls, ClientThread);
+          end
+          else
+            ClientThread.Socket.WriteInteger(0);
+        end;
       0: begin //断开连接
           ClientThread.Socket.Disconnect;
         end;
@@ -198,7 +264,7 @@ begin
               ClientThread.Socket.WriteInteger(1);
             except
               on e: Exception do begin
-                glBatchLst.SaveToFile('D:\1.txt'); 
+                glBatchLst.SaveToFile('D:\1.txt');
                 ClientThread.Socket.WriteInteger(-1);
                 ClientThread.Socket.WriteInteger(Length(e.Message));
                 ClientThread.Socket.Write(e.Message);
