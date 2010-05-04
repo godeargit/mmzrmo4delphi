@@ -72,6 +72,9 @@ type
     //批量提交语句  立即执行所传入的语句列表
     function BathExecSqls(IsqlList: TStrings): Integer;
 
+    //检查升级
+    procedure CheckUpdate;
+
     procedure OnCreate; override;
     procedure OnDestory; override;
   end;
@@ -86,10 +89,12 @@ type
 var
   //远程连接控制对象
   Gob_RmoCtler: TRmoClient;
+  GCurrVer: integer = 1; //当前程序升级版本号
 
 implementation
 
-uses untfunctions, sysUtils, UntBaseProctol, DXSock, IniFiles, ADOInt, Variants;
+uses untfunctions, sysUtils, UntBaseProctol, DXSock, IniFiles, ADOInt, Variants,
+  Windows;
 
 
 function TRmoClient.BathExecSqls(IsqlList: TStrings): Integer;
@@ -107,7 +112,7 @@ begin
   if llen = -1 then begin
     llen := ReadInteger();
     IErr := ReadStr(llen);
-    IsqlList.SaveToFile('D:\2.txt');
+//    IsqlList.SaveToFile('D:\2.txt');
     raise Exception.Create(IErr);
   end
   else begin
@@ -132,6 +137,49 @@ begin
   except
     if FIsDisConn = False then
       FisConning := False;
+  end;
+end;
+
+procedure TRmoClient.CheckUpdate;
+var
+  i: Integer;
+  li, lr, lm: integer;
+  ls, lspath, lflst: string;
+  lspit: TStringList;
+begin
+  WriteInteger(9998);
+  lr := ReadInteger;
+  if lr > 0 then begin
+    lspit := TStringList.Create;
+    lr := ReadInteger; //ver
+    lm := ReadInteger;
+    lspath := ReadLn(10000);
+    ls := ReadLn(10000);
+    li := ReadInteger;
+    lflst := ReadStr(li);
+    if lr > GCurrVer then begin
+      lspit.Add(IntToStr(lm));
+      lspit.Add(ls);
+      //后台下载下来
+      GetEveryWord(lflst, '|');
+      lspit.Add(IntToStr(GlGetEveryWord.Count));
+
+      for i := 0 to GlGetEveryWord.Count - 1 do begin // Iterate
+        SendHead(9997);
+        WriteLn(GlGetEveryWord[i]);
+        li := ReadInteger;
+        if li = 1 then begin
+          ls := StringReplace(GlGetEveryWord[i], lspath, '', []);
+          ls := GetCurrPath + ls;
+          ForceDirectories(ExtractFilePath(ls));
+          GetZipFile(ls);
+          lspit.Add(ls);
+        end;
+      end; // for
+      lspit.SaveToFile('up.cfg');
+      lspit.Free;
+      WinExec(pchar('up.exe  ' + ExtractFileName(ParamStr(0))), SW_SHOW);
+    end;
   end;
 end;
 
@@ -336,7 +384,7 @@ begin
 
             FSqlPart1 := FSqlPart1 + ifthen(i = n, '', ',') + Fields[i].FieldName;
             case Fields[i].DataType of
-              ftCurrency, ftBCD, ftWord, ftFloat, ftBytes: FSqlPart2 := FSqlPart2 + ifthen(i = n, '', ',') + ifthen(Fields[i].AsString='','0',Fields[i].AsString);
+              ftCurrency, ftBCD, ftWord, ftFloat, ftBytes: FSqlPart2 := FSqlPart2 + ifthen(i = n, '', ',') + ifthen(Fields[i].AsString = '', '0', Fields[i].AsString);
               ftBoolean, ftSmallint, ftInteger: FSqlPart2 := FSqlPart2 + ifthen(i = n, '', ',') + IntToStr(Fields[i].AsInteger);
             else
               FSqlPart2 := FSqlPart2 + ifthen(i = n, '', ',') + '''' + Fields[i].AsString + '''';
@@ -548,7 +596,7 @@ begin
       ISql := GetCurrPath + GetDocDate + GetDocTime + IntToStr(Fsn);
       GetZipFile(ISql);
       IADoquery.LoadFromFile(ISql);
-      DeleteFile(ISql);
+      DeleteFile(pchar(ISql));
     end;
     Result := True;
   end;

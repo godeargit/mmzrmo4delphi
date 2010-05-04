@@ -31,6 +31,7 @@ type
     DBGrid2: TDBGrid;
     DBGrid3: TDBGrid;
     Label1: TLabel;
+    Button7: TButton;
     procedure FormCreate(Sender: TObject);
     procedure Button5Click(Sender: TObject);
     procedure Button2Click(Sender: TObject);
@@ -42,6 +43,7 @@ type
     procedure btn1Click(Sender: TObject);
     procedure btn2Click(Sender: TObject);
     procedure pgc_ctlChange(Sender: TObject);
+    procedure Button7Click(Sender: TObject);
   private
     { Private declarations }
   public
@@ -215,6 +217,11 @@ begin
     Gob_Rmo.OpenTable('Tmaster', QryMaster);
     Gob_Rmo.OpenDataset(QrySlave, 'select * from Tslave');
   end;
+end;
+
+procedure Tfrm_main.Button7Click(Sender: TObject);
+begin
+  Gob_Rmo.FRmoClient.CheckUpdate;
 end;
 
 end.

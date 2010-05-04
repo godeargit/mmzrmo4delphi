@@ -133,6 +133,15 @@ object frm_main: Tfrm_main
         TabOrder = 8
         OnClick = btn2Click
       end
+      object Button7: TButton
+        Left = 517
+        Top = 371
+        Width = 132
+        Height = 21
+        Caption = #23458#25143#31471#33258#21160#21319#32423
+        TabOrder = 9
+        OnClick = Button7Click
+      end
     end
     object ts_two: TTabSheet
       Caption = #22823#20108#36827#21046#23383#27573#23384#21462#28436#31034
@@ -169,7 +178,7 @@ object frm_main: Tfrm_main
       object Label1: TLabel
         Left = 70
         Top = 185
-        Width = 169
+        Width = 146
         Height = 13
         Caption = #19978#36793#26159#20027#34920'  '#19979#36793#26159#20174#34920
       end
