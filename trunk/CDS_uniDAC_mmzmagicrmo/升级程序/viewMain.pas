@@ -101,6 +101,8 @@ begin
   DeleteDir(GetCurrPath() + 'update');
   DeleteFile(GetCurrPath() + 'up.cfg');
   lbl_hi.Caption := 'Éý¼¶Íê±Ï';
+  SleepMy(2000);
+  btn_close.Click;
 end;
 
 end.

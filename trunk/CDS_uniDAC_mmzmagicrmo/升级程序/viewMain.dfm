@@ -1320,11 +1320,14 @@ object View_main: TView_main
     Left = 42
     Top = 227
     Width = 307
-    BarStyle = bsGradient
-    BorderWidth = 0
-    InteriorOffset = 0
+    BarStyle = bsLED
+    BorderInner = fsFlat
+    BorderOuter = fsNone
+    BorderWidth = 1
+    InteriorOffset = 1
     PartsComplete = 0
     Percent = 0
+    ShowPercent = False
     TotalParts = 100
   end
   object lbl1: TLabel
@@ -1352,7 +1355,6 @@ object View_main: TView_main
     Left = 356
     Top = 226
     Width = 59
-    FrameColor = 7617536
     Caption = #30830#23450
     Color = 15791348
     HotTrack = True
@@ -1364,12 +1366,10 @@ object View_main: TView_main
     Left = 425
     Top = 226
     Width = 59
-    FrameColor = 7617536
     Caption = #20851#38381
     Color = 15791348
     HotTrack = True
     TabOrder = 1
-    Visible = False
     OnClick = btn_closeClick
   end
   object tmr1: TTimer
