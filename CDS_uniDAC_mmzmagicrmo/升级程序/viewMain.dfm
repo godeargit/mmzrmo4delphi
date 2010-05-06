@@ -4,7 +4,7 @@ object View_main: TView_main
   BorderIcons = [biMinimize, biMaximize]
   BorderStyle = bsSingle
   Caption = #33258#21160#21319#32423#31934#28789
-  ClientHeight = 282
+  ClientHeight = 351
   ClientWidth = 510
   Color = clWhite
   Font.Charset = GB2312_CHARSET
@@ -1371,6 +1371,19 @@ object View_main: TView_main
     HotTrack = True
     TabOrder = 1
     OnClick = btn_closeClick
+  end
+  object mmo_show: TMemo
+    Left = 0
+    Top = 288
+    Width = 510
+    Height = 63
+    Align = alBottom
+    Anchors = [akLeft, akTop, akRight, akBottom]
+    BevelInner = bvNone
+    BevelOuter = bvNone
+    BorderStyle = bsNone
+    ImeName = 'Chinese (Simplified) - US Keyboard'
+    TabOrder = 2
   end
   object tmr1: TTimer
     Enabled = False

@@ -16,6 +16,7 @@ type
     btn_close: TRzButton;
     lbl1: TLabel;
     lbl_hi: TLabel;
+    mmo_show: TMemo;
     procedure FormCreate(Sender: TObject);
     procedure tmr1Timer(Sender: TObject);
     procedure btn_closeClick(Sender: TObject);
@@ -32,7 +33,7 @@ var
 implementation
 
 uses
-  untFunctions;
+  untFunctions, pmybasedebug;
 
 
 var
@@ -43,8 +44,10 @@ var
 procedure TView_main.FormCreate(Sender: TObject);
 
 begin
-  if FileExists(GetCurrPath + 'up.cfg') = false then
-    WarningInfo('没有发现升级所需的文件，请与管理员联系')
+  if FileExists(GetCurrPath + 'up.cfg') = false then begin
+    lbl_hi.Caption := ('没有发现升级所需的文件，请与管理员联系');
+    Application.Terminate;
+  end
   else begin
     ls := TStringList.Create;
     ls.LoadFromFile('up.cfg');
@@ -87,12 +90,15 @@ begin
   SleepMy(500);
   li := 0;
   LC := StrToInt(ls[2]);
+  mmo_show.Lines.Add('开始升级');
   for i := 3 to lc + 2 do begin // Iterate
-    lis := ifthen(ParamStr(1) = '', GetCurrPath, ParamStr(1)) + 'update\';
+    lis := GetCurrPath + 'update\';
     lis := StringReplace(ls[i], lis, '', []);
     lis := GetCurrPath() + lis;
     ForceDirectories(ExtractFilePath(lis));
-    CopyFile(pchar(ls[i]), pchar(lis), false);
+    mmo_show.Lines.Add('升级文件: ' + ls[i]);
+    mmo_show.Lines.Add('替换: ' + lis);
+    mmo_show.Lines.Add('结果: ' + BoolToStr(CopyFile(pchar(ls[i]), pchar(lis), false), True));
     SleepMy(10);
     inc(li);
     RzProgressBar1.Percent := li * 100 div Lc;
@@ -101,7 +107,7 @@ begin
   DeleteDir(GetCurrPath() + 'update');
   DeleteFile(GetCurrPath() + 'up.cfg');
   lbl_hi.Caption := '升级完毕';
-  SleepMy(2000);
+  SleepMy(5000);
   btn_close.Click;
 end;
 
