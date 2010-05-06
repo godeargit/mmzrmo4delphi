@@ -195,12 +195,12 @@ begin
             if lini = nil then
               lini := TIniFile.Create(GetCurrPath + 'update.ini');
             ClientThread.Socket.WriteInteger(1);
-            ClientThread.Socket.WriteInteger(lini.ReadInteger('info', 'ver', 0));
-            i:= lini.ReadInteger('info', 'isfrce', 1);
+            ClientThread.Socket.WriteInteger(lini.ReadInteger('auth', 'ver', 0));
+            i:= lini.ReadInteger('auth', 'isfrce', 1);
             ClientThread.Socket.WriteInteger(i);
             ClientThread.Socket.WriteLn(GetCurrPath);
-            ClientThread.Socket.WriteLn(lini.ReadString('info', 'hint', 'нч'));
-            MGetFileListToStr(ls, '|', '*.*', GetCurrPath + lini.ReadString('info', 'filepath', 'update'), True);
+            ClientThread.Socket.WriteLn(lini.ReadString('auth', 'hint', 'нч'));
+            MGetFileListToStr(ls, '|', '*.*', GetCurrPath + lini.ReadString('auth', 'filepath', 'update'), True);
             ClientThread.Socket.WriteInteger(length(ls));
             ClientThread.Socket.Write(ls);
           end

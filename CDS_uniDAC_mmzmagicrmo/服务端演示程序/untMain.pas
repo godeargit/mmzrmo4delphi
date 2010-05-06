@@ -37,8 +37,6 @@ begin
   //创建数据服务器对象 使用9000端口
   Gob_RmoDBsvr := TRmodbSvr.Create(9000, Gio);
   AssignCfgFile(GetCurrPath() + 'sys.ini');
-  Gob_CFGer.SetSecton('login');
-
 end;
 
 procedure Tfrm_main.FormDestroy(Sender: TObject);
