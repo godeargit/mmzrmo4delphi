@@ -51,8 +51,7 @@ begin
 //------------------------------------------------------------------------------
 // 在此处可以根据需要连接不同的数据库以及填入不同连接参数 2010-04-23 马敏钊
 //------------------------------------------------------------------------------
-  with Coner do
-  begin
+  with Coner do begin
 //连接Access
 {$IFDEF Access}
     coner.ProviderName := 'Access';
@@ -82,7 +81,8 @@ begin
 //连接SqlServer
 {$IFDEF SqlServer}
     ProviderName := 'SQL Server'; //
-    database := 'test';
+    server := '192.168.0.36,7788';
+    database := 'dbexam';
     UserName := 'sa'; //数据库密码
     Password := 'sa'; //数据库密码
 {$ENDIF}
@@ -94,6 +94,7 @@ begin
 //连接Oracle
 {$IFDEF Oracle}
     ProviderName := 'Oracle'; //
+    server := '192.168.0.36,7788';
     database := 'test';
     UserName := 'sa'; //数据库密码
     Password := 'sa'; //数据库密码
@@ -101,6 +102,7 @@ begin
 //连接MySql
 {$IFDEF MySql}
     ProviderName := 'MySQL'; //
+    server := '192.168.0.36,7788';
     database := 'test';
     UserName := 'root'; //数据库密码
     Password := '123'; //数据库密码
