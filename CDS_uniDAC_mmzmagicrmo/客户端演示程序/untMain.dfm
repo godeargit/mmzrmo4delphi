@@ -18,7 +18,7 @@ object frm_main: Tfrm_main
   object pnl_head: TPanel
     Left = 0
     Top = 0
-    Width = 677
+    Width = 669
     Height = 49
     Align = alTop
     BevelOuter = bvNone
@@ -38,8 +38,8 @@ object frm_main: Tfrm_main
   object pgc_ctl: TPageControl
     Left = 0
     Top = 49
-    Width = 677
-    Height = 430
+    Width = 669
+    Height = 426
     ActivePage = ts_one
     Align = alClient
     TabOrder = 1
@@ -49,7 +49,7 @@ object frm_main: Tfrm_main
       object DBGrid1: TDBGrid
         Left = 0
         Top = 0
-        Width = 669
+        Width = 661
         Height = 320
         Align = alTop
         DataSource = ds1
@@ -149,8 +149,8 @@ object frm_main: Tfrm_main
       object pnlower: TPanel
         Left = 137
         Top = 0
-        Width = 532
-        Height = 402
+        Width = 524
+        Height = 398
         Align = alClient
         Caption = 'pnlower'
         ParentBackground = False
@@ -160,7 +160,7 @@ object frm_main: Tfrm_main
         Left = 0
         Top = 0
         Width = 137
-        Height = 402
+        Height = 398
         Align = alLeft
         DragMode = dmAutomatic
         ImeName = 'Chinese (Simplified) - US Keyboard'
@@ -178,7 +178,7 @@ object frm_main: Tfrm_main
       object Label1: TLabel
         Left = 70
         Top = 185
-        Width = 146
+        Width = 126
         Height = 13
         Caption = #19978#36793#26159#20027#34920'  '#19979#36793#26159#20174#34920
       end
@@ -189,6 +189,7 @@ object frm_main: Tfrm_main
         Height = 171
         Align = alTop
         DataSource = ds_master
+        ImeName = 'Chinese (Simplified) - US Keyboard'
         TabOrder = 0
         TitleFont.Charset = DEFAULT_CHARSET
         TitleFont.Color = clWindowText
@@ -203,6 +204,7 @@ object frm_main: Tfrm_main
         Height = 189
         Align = alBottom
         DataSource = ds_slave
+        ImeName = 'Chinese (Simplified) - US Keyboard'
         TabOrder = 1
         TitleFont.Charset = DEFAULT_CHARSET
         TitleFont.Color = clWindowText

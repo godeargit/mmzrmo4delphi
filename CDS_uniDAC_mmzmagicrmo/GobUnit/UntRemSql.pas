@@ -4,7 +4,7 @@ interface
 
 uses
   Classes, SysUtils, Forms, Windows, DB,
-  untRmoDbClient, Dbclient;
+  untRmoDbClient, Dbclient,midaslib;
 
 
 type
