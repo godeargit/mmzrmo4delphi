@@ -23,7 +23,7 @@ unit untRmoDbClient;
 interface
 
 uses
-  Classes, UntsocketDxBaseClient, IdComponent, Controls, ExtCtrls, db, dbclient;
+  Classes, UntsocketDxBaseClient, IdComponent, Controls, ExtCtrls, db, dbclient,midaslib;
 
 type
   TConnthread = class;
