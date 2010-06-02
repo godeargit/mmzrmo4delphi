@@ -192,7 +192,7 @@ begin
     FHost := ISvrIP;
     FPort := ISvrPort;
     Facc := Iacc;
-    iPsd := iPsd;
+    Fpsd := iPsd;
     FIsDisConn := False;
     if not IsConnected then begin
       try
